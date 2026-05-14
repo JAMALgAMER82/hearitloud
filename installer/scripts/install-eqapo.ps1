@@ -5,21 +5,28 @@
 .NOTES
   Invoked by the Inno Setup wrapper (installer/installer.iss). Exit codes:
     0  - EQ APO is now installed (either was already, or installed successfully)
-    1  - Download failed
+    1  - Download failed across all mirrors
     2  - EQ APO installer exited non-zero
-    3  - User cancelled
 
-  Equalizer APO requires a reboot after install; this script returns 0 and the
-  wrapper installer marks AlwaysRestart=yes so Inno Setup handles the reboot prompt.
+  Equalizer APO requires a reboot after install. We pass /NORESTART here and let
+  the Inno Setup wrapper handle the reboot prompt (AlwaysRestart=yes).
+
+  IMPORTANT: SourceForge's filename for the 64-bit installer is
+  `EqualizerAPO-x64-1.4.2.exe` (hyphen + x64), NOT `EqualizerAPO64-1.4.2.exe`.
+  Using the wrong filename returns a 404 -> HTML redirect page that looks like
+  a successful tiny download. Always verify size > 1 MB after download.
 #>
 
 param(
-  [string]$DownloadUrl = 'https://downloads.sourceforge.net/project/equalizerapo/1.4.2/EqualizerAPO64-1.4.2.exe',
-  [string]$BackupUrl   = 'https://sourceforge.net/projects/equalizerapo/files/1.4.2/EqualizerAPO64-1.4.2.exe/download'
+  [string[]] $Urls = @(
+    'https://sourceforge.net/projects/equalizerapo/files/1.4.2/EqualizerAPO-x64-1.4.2.exe/download',
+    'https://downloads.sourceforge.net/project/equalizerapo/1.4.2/EqualizerAPO-x64-1.4.2.exe',
+    'https://master.dl.sourceforge.net/project/equalizerapo/1.4.2/EqualizerAPO-x64-1.4.2.exe'
+  )
 )
 
 $ErrorActionPreference = 'Stop'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 
 # Detect existing install via registry
 $installPath = $null
@@ -32,19 +39,22 @@ if ($installPath -and (Test-Path $installPath)) {
   exit 0
 }
 
-$temp = Join-Path $env:TEMP 'WarzoneEQ-bootstrap'
+$temp = Join-Path $env:TEMP 'HearItLoud-bootstrap'
 New-Item -ItemType Directory -Force -Path $temp | Out-Null
-$installer = Join-Path $temp 'EqualizerAPO64-1.4.2.exe'
+$installer = Join-Path $temp 'EqualizerAPO-x64-1.4.2.exe'
 
 function Try-Download($url) {
   try {
     Write-Host "Downloading Equalizer APO from $url ..."
-    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -UserAgent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing `
+      -UserAgent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     $info = Get-Item $installer
     if ($info.Length -lt 1MB) {
-      Write-Host "  Downloaded $($info.Length) bytes - too small, treating as redirect/error."
+      Write-Host "  Downloaded $($info.Length) bytes - too small (probably an HTML redirect). Skipping."
+      Remove-Item $installer -Force -ErrorAction SilentlyContinue
       return $false
     }
+    Write-Host "  Downloaded $([math]::Round($info.Length / 1MB, 2)) MB."
     return $true
   } catch {
     Write-Host "  Download failed: $($_.Exception.Message)"
@@ -52,11 +62,17 @@ function Try-Download($url) {
   }
 }
 
-if (-not (Try-Download $DownloadUrl)) {
-  if (-not (Try-Download $BackupUrl)) {
-    Write-Error "Could not download Equalizer APO. Check your internet connection or download manually from https://equalizerapo.com"
-    exit 1
-  }
+$downloaded = $false
+foreach ($u in $Urls) {
+  if (Try-Download $u) { $downloaded = $true; break }
+}
+
+if (-not $downloaded) {
+  Write-Host ""
+  Write-Host "ERROR: Could not download Equalizer APO from any mirror."
+  Write-Host "Please install it manually from https://equalizerapo.com and re-run this installer."
+  Write-Error "Equalizer APO download failed."
+  exit 1
 }
 
 Write-Host "Running Equalizer APO installer (silent)..."

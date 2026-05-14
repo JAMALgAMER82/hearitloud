@@ -54,11 +54,14 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--auto"; Tasks: desktopicon
 
 [Run]
-; Step 1: install / verify Equalizer APO (downloads if missing)
+; Step 1: install / verify Equalizer APO (downloads if missing).
+; CheckPostInstall halts setup if PS exits non-zero so we don't silently
+; proceed to the success popup when EQ APO actually failed to install.
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\install-eqapo.ps1"""; \
   StatusMsg: "Installing Equalizer APO (downloading if needed)..."; \
-  Flags: runhidden waituntilterminated
+  Flags: runhidden waituntilterminated; \
+  AfterInstall: CheckEqApoInstalled
 
 ; Step 2: run --auto so the user has a working config the moment they reboot
 Filename: "powershell.exe"; \
@@ -74,6 +77,23 @@ Filename: "powershell.exe"; \
 function InitializeSetup(): Boolean;
 begin
   Result := True;
+end;
+
+procedure CheckEqApoInstalled();
+var
+  InstallPath: string;
+begin
+  if not RegQueryStringValue(HKLM, 'SOFTWARE\EqualizerAPO', 'InstallPath', InstallPath) then
+  begin
+    MsgBox(
+      'Equalizer APO could not be installed automatically.' + #13#10 + #13#10 +
+      'This usually means your network blocked the download. Please:' + #13#10 +
+      '  1. Download Equalizer APO yourself from https://equalizerapo.com' + #13#10 +
+      '  2. Install it and reboot' + #13#10 +
+      '  3. Run "HearItLoud.exe --auto" from C:\Program Files\Hear It Loud',
+      mbCriticalError, MB_OK);
+    Abort();
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

@@ -9,7 +9,7 @@ param(
 )
 
 if (-not (Test-Path $ExePath)) {
-  Write-Host "WarzoneEQ.exe not found at $ExePath; skipping auto-tune."
+  Write-Host "HearItLoud.exe not found at $ExePath; skipping auto-tune."
   exit 0
 }
 
