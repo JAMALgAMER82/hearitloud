@@ -4,3 +4,5 @@ obj/
 .vs/
 *.received.txt
 TestResults/
+publish/
+installer/assets/
