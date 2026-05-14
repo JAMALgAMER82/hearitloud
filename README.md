@@ -6,7 +6,7 @@ Ultimate compliant footstep audio app for Call of Duty Warzone. See [the design 
 
 - [x] **#1 EQ APO Config Generator** — `src/WarzoneEQ.ConfigGenerator/`, `src/WarzoneEQ.Cli/` ([plan](docs/superpowers/plans/2026-05-14-eq-apo-config-generator.md))
 - [x] **#2 Audio Device Detection** — `src/WarzoneEQ.DeviceDetection/` ([plan](docs/superpowers/plans/2026-05-14-audio-device-detection.md))
-- [ ] #3 EQ APO + Windows Audio Integration
+- [x] **#3 EQ APO + Windows Audio Integration** — `src/WarzoneEQ.WindowsIntegration/` ([plan](docs/superpowers/plans/2026-05-14-eq-apo-windows-audio-integration.md))
 - [ ] #4 Control App GUI
 - [ ] #5 First-Run Wizard + Auto-Tune
 - [ ] #6 Sharing & Personalized HRTF Tiers
@@ -33,4 +33,4 @@ Outputs an Equalizer APO config to stdout.
 dotnet test
 ```
 
-87 tests, all passing as of sub-plan #2 completion.
+101 tests, all passing as of sub-plan #3 completion.
