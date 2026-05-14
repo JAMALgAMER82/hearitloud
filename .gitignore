@@ -1,0 +1,6 @@
+bin/
+obj/
+*.user
+.vs/
+*.received.txt
+TestResults/
