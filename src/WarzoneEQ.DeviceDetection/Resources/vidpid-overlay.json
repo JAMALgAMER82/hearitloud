@@ -1,0 +1,56 @@
+{
+  "headphones": {
+    "VID_1532&PID_0517": { "model": "Razer BlackShark V2 Pro", "autoeq_slug": "razer/BlackShark_V2_Pro" },
+    "VID_1038&PID_12AD": { "model": "SteelSeries Arctis Nova Pro Wireless", "autoeq_slug": "steelseries/Arctis_Nova_Pro_Wireless" },
+    "VID_0BDA&PID_4014": { "model": "HyperX Cloud III Wireless", "autoeq_slug": "hyperx/Cloud_III_Wireless" },
+    "VID_0D8C&PID_0014": { "model": "Sennheiser HD 600 (via USB DAC)", "autoeq_slug": "sennheiser/HD_600" }
+  },
+  "multi_endpoint_dacs": {
+    "VID_041E&PID_3260": {
+      "model": "Creative Sound Blaster GC7",
+      "game_endpoint": "Speakers (Sound Blaster GC7 Game)",
+      "voice_endpoint": "Speakers (Sound Blaster GC7 Chat)"
+    },
+    "VID_041E&PID_3270": {
+      "model": "Creative Sound Blaster G8",
+      "game_endpoint": "Speakers (Sound Blaster G8 Game)",
+      "voice_endpoint": "Speakers (Sound Blaster G8 Chat)"
+    },
+    "VID_041E&PID_3251": {
+      "model": "Creative Sound Blaster X3",
+      "game_endpoint": "Speakers (Sound Blaster X3 Game)",
+      "voice_endpoint": "Speakers (Sound Blaster X3 Chat)"
+    },
+    "VID_041E&PID_3253": {
+      "model": "Creative Sound Blaster X4",
+      "game_endpoint": "Speakers (Sound Blaster X4 Game)",
+      "voice_endpoint": "Speakers (Sound Blaster X4 Chat)"
+    },
+    "VID_041E&PID_3265": {
+      "model": "Creative Sound Blaster X5",
+      "game_endpoint": "Speakers (Sound Blaster X5 Game)",
+      "voice_endpoint": "Speakers (Sound Blaster X5 Chat)"
+    },
+    "VID_9886&PID_002C": {
+      "model": "Astro MixAmp Pro TR",
+      "game_endpoint": "Speakers (Astro MixAmp Pro Game)",
+      "voice_endpoint": "Speakers (Astro MixAmp Pro Voice)"
+    },
+    "VID_1395&PID_011B": {
+      "model": "Sennheiser GSX 1200 Pro",
+      "game_endpoint": "Speakers (Sennheiser GSX 1200 Game)",
+      "voice_endpoint": "Speakers (Sennheiser GSX 1200 Chat)"
+    },
+    "VID_1038&PID_12CB": {
+      "model": "SteelSeries GameDAC Gen 2",
+      "game_endpoint": "Speakers (SteelSeries GameDAC Gen 2 Game)",
+      "voice_endpoint": "Speakers (SteelSeries GameDAC Gen 2 Chat)"
+    }
+  },
+  "bluetooth_names": {
+    "WH-1000XM5": "sony/WH-1000XM5",
+    "WH-1000XM4": "sony/WH-1000XM4",
+    "Arctis Nova Pro Wireless": "steelseries/Arctis_Nova_Pro_Wireless",
+    "BlackShark V2 Pro": "razer/BlackShark_V2_Pro"
+  }
+}
