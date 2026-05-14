@@ -1,56 +1,61 @@
 {
   "headphones": {
-    "VID_1532&PID_0517": { "model": "Razer BlackShark V2 Pro", "autoeq_slug": "razer/BlackShark_V2_Pro" },
-    "VID_1038&PID_12AD": { "model": "SteelSeries Arctis Nova Pro Wireless", "autoeq_slug": "steelseries/Arctis_Nova_Pro_Wireless" },
-    "VID_0BDA&PID_4014": { "model": "HyperX Cloud III Wireless", "autoeq_slug": "hyperx/Cloud_III_Wireless" },
-    "VID_0D8C&PID_0014": { "model": "Sennheiser HD 600 (via USB DAC)", "autoeq_slug": "sennheiser/HD_600" }
+    "VID_1532&PID_0517": { "model": "Razer BlackShark V2 Pro",            "autoeq_slug": "razer/BlackShark_V2_Pro" },
+    "VID_1532&PID_0521": { "model": "Razer Kraken V3",                    "autoeq_slug": "razer/Kraken_V3" },
+    "VID_1532&PID_051A": { "model": "Razer Nari Ultimate",                "autoeq_slug": "razer/Nari_Ultimate" },
+    "VID_1038&PID_12AD": { "model": "SteelSeries Arctis Nova Pro Wireless","autoeq_slug": "steelseries/Arctis_Nova_Pro_Wireless" },
+    "VID_1038&PID_12C2": { "model": "SteelSeries Arctis 7+",              "autoeq_slug": "steelseries/Arctis_7_Plus" },
+    "VID_1038&PID_12B6": { "model": "SteelSeries Arctis Pro Wireless",    "autoeq_slug": "steelseries/Arctis_Pro_Wireless" },
+    "VID_0BDA&PID_4014": { "model": "HyperX Cloud III Wireless",          "autoeq_slug": "hyperx/Cloud_III_Wireless" },
+    "VID_0951&PID_1718": { "model": "HyperX Cloud II Wireless",           "autoeq_slug": "hyperx/Cloud_II_Wireless" },
+    "VID_0951&PID_16D8": { "model": "HyperX Cloud Alpha Wireless",        "autoeq_slug": "hyperx/Cloud_Alpha_Wireless" },
+    "VID_1395&PID_001E": { "model": "EPOS H6PRO Closed",                  "autoeq_slug": "epos/H6PRO_Closed" },
+    "VID_046D&PID_0AB5": { "model": "Logitech G Pro X Wireless",          "autoeq_slug": "logitech/G_Pro_X_Wireless" },
+    "VID_046D&PID_0A87": { "model": "Logitech G Pro X",                   "autoeq_slug": "logitech/G_Pro_X" },
+    "VID_046D&PID_0A56": { "model": "Logitech G733",                      "autoeq_slug": "logitech/G733" },
+    "VID_046D&PID_0AA7": { "model": "Logitech G535",                      "autoeq_slug": "logitech/G535" },
+    "VID_9886&PID_0027": { "model": "Astro A50 Gen 4",                    "autoeq_slug": "astro/A50_Gen4" },
+    "VID_9886&PID_0024": { "model": "Astro A40 TR",                       "autoeq_slug": "astro/A40_TR" },
+    "VID_1B1C&PID_0A87": { "model": "Corsair HS80 RGB Wireless",          "autoeq_slug": "corsair/HS80_RGB_Wireless" },
+    "VID_1B1C&PID_0A1A": { "model": "Corsair Virtuoso RGB Wireless",      "autoeq_slug": "corsair/Virtuoso_RGB_Wireless" },
+    "VID_10F5&PID_0231": { "model": "Turtle Beach Stealth 700 Gen 2",     "autoeq_slug": "turtlebeach/Stealth_700_Gen2" },
+    "VID_0D8C&PID_0014": { "model": "Sennheiser HD 600 (via USB DAC)",    "autoeq_slug": "sennheiser/HD_600" },
+    "VID_0D8C&PID_03B5": { "model": "Sennheiser HD 650 (via USB DAC)",    "autoeq_slug": "sennheiser/HD_650" },
+    "VID_0D8C&PID_03A5": { "model": "Sennheiser HD 660S (via USB DAC)",   "autoeq_slug": "sennheiser/HD_660_S" },
+    "VID_0D8C&PID_03BD": { "model": "Beyerdynamic DT 770 Pro (via USB DAC)", "autoeq_slug": "beyerdynamic/DT_770_Pro_80_Ohm" },
+    "VID_0D8C&PID_03A8": { "model": "Beyerdynamic DT 990 Pro (via USB DAC)", "autoeq_slug": "beyerdynamic/DT_990_Pro_250_Ohm" },
+    "VID_0D8C&PID_0102": { "model": "Audio-Technica ATH-M50x (via USB DAC)", "autoeq_slug": "audio-technica/ATH-M50x" }
   },
   "multi_endpoint_dacs": {
-    "VID_041E&PID_3260": {
-      "model": "Creative Sound Blaster GC7",
-      "game_endpoint": "Speakers (Sound Blaster GC7 Game)",
-      "voice_endpoint": "Speakers (Sound Blaster GC7 Chat)"
-    },
-    "VID_041E&PID_3270": {
-      "model": "Creative Sound Blaster G8",
-      "game_endpoint": "Speakers (Sound Blaster G8 Game)",
-      "voice_endpoint": "Speakers (Sound Blaster G8 Chat)"
-    },
-    "VID_041E&PID_3251": {
-      "model": "Creative Sound Blaster X3",
-      "game_endpoint": "Speakers (Sound Blaster X3 Game)",
-      "voice_endpoint": "Speakers (Sound Blaster X3 Chat)"
-    },
-    "VID_041E&PID_3253": {
-      "model": "Creative Sound Blaster X4",
-      "game_endpoint": "Speakers (Sound Blaster X4 Game)",
-      "voice_endpoint": "Speakers (Sound Blaster X4 Chat)"
-    },
-    "VID_041E&PID_3265": {
-      "model": "Creative Sound Blaster X5",
-      "game_endpoint": "Speakers (Sound Blaster X5 Game)",
-      "voice_endpoint": "Speakers (Sound Blaster X5 Chat)"
-    },
-    "VID_9886&PID_002C": {
-      "model": "Astro MixAmp Pro TR",
-      "game_endpoint": "Speakers (Astro MixAmp Pro Game)",
-      "voice_endpoint": "Speakers (Astro MixAmp Pro Voice)"
-    },
-    "VID_1395&PID_011B": {
-      "model": "Sennheiser GSX 1200 Pro",
-      "game_endpoint": "Speakers (Sennheiser GSX 1200 Game)",
-      "voice_endpoint": "Speakers (Sennheiser GSX 1200 Chat)"
-    },
-    "VID_1038&PID_12CB": {
-      "model": "SteelSeries GameDAC Gen 2",
-      "game_endpoint": "Speakers (SteelSeries GameDAC Gen 2 Game)",
-      "voice_endpoint": "Speakers (SteelSeries GameDAC Gen 2 Chat)"
-    }
+    "VID_041E&PID_3260": { "model": "Creative Sound Blaster GC7",          "game_endpoint": "Speakers (Sound Blaster GC7 Game)",          "voice_endpoint": "Speakers (Sound Blaster GC7 Chat)" },
+    "VID_041E&PID_3270": { "model": "Creative Sound Blaster G8",           "game_endpoint": "Speakers (Sound Blaster G8 Game)",           "voice_endpoint": "Speakers (Sound Blaster G8 Chat)" },
+    "VID_041E&PID_3251": { "model": "Creative Sound Blaster X3",           "game_endpoint": "Speakers (Sound Blaster X3 Game)",           "voice_endpoint": "Speakers (Sound Blaster X3 Chat)" },
+    "VID_041E&PID_3253": { "model": "Creative Sound Blaster X4",           "game_endpoint": "Speakers (Sound Blaster X4 Game)",           "voice_endpoint": "Speakers (Sound Blaster X4 Chat)" },
+    "VID_041E&PID_3265": { "model": "Creative Sound Blaster X5",           "game_endpoint": "Speakers (Sound Blaster X5 Game)",           "voice_endpoint": "Speakers (Sound Blaster X5 Chat)" },
+    "VID_9886&PID_002C": { "model": "Astro MixAmp Pro TR",                 "game_endpoint": "Speakers (Astro MixAmp Pro Game)",            "voice_endpoint": "Speakers (Astro MixAmp Pro Voice)" },
+    "VID_1395&PID_011B": { "model": "Sennheiser GSX 1200 Pro",             "game_endpoint": "Speakers (Sennheiser GSX 1200 Game)",         "voice_endpoint": "Speakers (Sennheiser GSX 1200 Chat)" },
+    "VID_1038&PID_12CB": { "model": "SteelSeries GameDAC Gen 2",           "game_endpoint": "Speakers (SteelSeries GameDAC Gen 2 Game)",   "voice_endpoint": "Speakers (SteelSeries GameDAC Gen 2 Chat)" }
   },
   "bluetooth_names": {
-    "WH-1000XM5": "sony/WH-1000XM5",
-    "WH-1000XM4": "sony/WH-1000XM4",
-    "Arctis Nova Pro Wireless": "steelseries/Arctis_Nova_Pro_Wireless",
-    "BlackShark V2 Pro": "razer/BlackShark_V2_Pro"
+    "WH-1000XM5":                "sony/WH-1000XM5",
+    "WH-1000XM4":                "sony/WH-1000XM4",
+    "WH-1000XM3":                "sony/WH-1000XM3",
+    "WF-1000XM5":                "sony/WF-1000XM5",
+    "WF-1000XM4":                "sony/WF-1000XM4",
+    "QuietComfort 45":           "bose/QC45",
+    "QuietComfort Ultra":        "bose/QC_Ultra",
+    "Bose 700":                  "bose/NC700",
+    "AirPods Max":               "apple/AirPods_Max",
+    "AirPods Pro":               "apple/AirPods_Pro",
+    "Beats Studio Pro":          "beats/Studio_Pro",
+    "Momentum 4 Wireless":       "sennheiser/Momentum_4",
+    "PXC 550-II":                "sennheiser/PXC_550-II",
+    "Galaxy Buds Pro 2":         "samsung/Galaxy_Buds2_Pro",
+    "Galaxy Buds 3 Pro":         "samsung/Galaxy_Buds3_Pro",
+    "Pixel Buds Pro":            "google/Pixel_Buds_Pro",
+    "Arctis Nova Pro Wireless":  "steelseries/Arctis_Nova_Pro_Wireless",
+    "BlackShark V2 Pro":         "razer/BlackShark_V2_Pro",
+    "Cloud III Wireless":        "hyperx/Cloud_III_Wireless",
+    "Cloud Alpha Wireless":      "hyperx/Cloud_Alpha_Wireless"
   }
 }

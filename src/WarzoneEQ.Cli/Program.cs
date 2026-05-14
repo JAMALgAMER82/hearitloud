@@ -7,6 +7,7 @@ using WarzoneEQ.DeviceDetection.Matching;
 using WarzoneEQ.WindowsIntegration;
 using WarzoneEQ.WindowsIntegration.EqApo;
 using WarzoneEQ.WindowsIntegration.Files;
+using WarzoneEQ.WindowsIntegration.LoudnessEq;
 
 var modeOption = new Option<AudioMode>(
     name: "--mode",
@@ -90,6 +91,7 @@ root.SetHandler(context =>
             autoHeadphone ?? headphone, autoDac ?? dac,
             linearPhase, adaptiveLoudness, wider, !noCompressor);
         InstallProfile(autoInput);
+        TryEnableLoudnessEq(snapshot.MultiEndpointDac?.GameEndpoint);
         return;
     }
 
@@ -154,10 +156,53 @@ static void InstallProfile(ProfileInput input)
     }
     var installer = new WarzoneConfigInstaller(locator, new AtomicFileWriter());
     var path = installer.Install(input);
-    Console.WriteLine($"Installed Warzone EQ config to:");
+    Console.WriteLine($"Installed Hear It Loud config to:");
     Console.WriteLine($"  {path}");
     Console.WriteLine();
     Console.WriteLine("Equalizer APO will hot-reload automatically (no restart needed).");
     Console.WriteLine("In Warzone: Settings -> Audio -> Audio Mix = Headphones Bass Cut,");
     Console.WriteLine("Surround Sound = 7.1, Music = 0, Enhanced Headphone Mode = OFF.");
+}
+
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+static void TryEnableLoudnessEq(string? gameEndpointFriendlyName)
+{
+    if (gameEndpointFriendlyName is null) return;
+    try
+    {
+        var endpointGuid = FindRenderEndpointGuid(gameEndpointFriendlyName);
+        if (endpointGuid is null)
+        {
+            Console.WriteLine($"(Skipped Windows Loudness EQ: endpoint '{gameEndpointFriendlyName}' not found in registry.)");
+            return;
+        }
+        var ctrl = new RegistryLoudnessEqController();
+        ctrl.Write(endpointGuid, new LoudnessEqState(Enabled: true, ReleaseTime: LoudnessEqState.MinReleaseTime));
+        Console.WriteLine($"Windows Loudness EQ enabled (SHORT release) on {gameEndpointFriendlyName}.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"(Windows Loudness EQ step skipped — {ex.Message})");
+    }
+}
+
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+static string? FindRenderEndpointGuid(string friendlyName)
+{
+    using var renderKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render");
+    if (renderKey is null) return null;
+    foreach (var sub in renderKey.GetSubKeyNames())
+    {
+        using var props = renderKey.OpenSubKey(sub + @"\Properties");
+        if (props is null) continue;
+        var name = props.GetValue("{a45c254e-df1c-4efd-8020-67d146a850e0},14")?.ToString();
+        if (name is null) continue;
+        if (string.Equals(name, friendlyName, StringComparison.OrdinalIgnoreCase)
+            || name.Contains(friendlyName, StringComparison.OrdinalIgnoreCase))
+        {
+            return sub; // already in {guid} form from registry
+        }
+    }
+    return null;
 }
