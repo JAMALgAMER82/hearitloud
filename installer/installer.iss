@@ -1,11 +1,11 @@
-; Warzone EQ — one-click installer
-; Bundles WarzoneEQ.exe + bootstraps Equalizer APO + runs --auto.
+; Hear It Loud — one-click installer
+; Bundles HearItLoud.exe + bootstraps Equalizer APO + runs --auto.
 
-#define MyAppName        "Warzone EQ"
+#define MyAppName        "Hear It Loud"
 #define MyAppVersion     "1.0.0"
-#define MyAppPublisher   "George Joseph"
-#define MyAppURL         "https://github.com/yourname/warzone-eq"
-#define MyAppExeName     "WarzoneEQ.exe"
+#define MyAppPublisher   "MasterMind George"
+#define MyAppURL         "https://github.com/yourname/hearitloud"
+#define MyAppExeName     "HearItLoud.exe"
 
 [Setup]
 AppId={{A82D7C18-7D40-4A6D-A2D8-9F1B2D8E4F3C}
@@ -17,7 +17,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\publish\installer
-OutputBaseFilename=WarzoneEQ-Setup
+OutputBaseFilename=HearItLoud-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -36,8 +36,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Name: "runautotune"; Description: "Run auto-detect + install after Equalizer APO is set up"; GroupDescription: "Post-install:"; Flags: checkedonce
 
 [Files]
-; Our self-contained WarzoneEQ.exe
-Source: "..\publish\win-x64\WarzoneEQ.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Our self-contained HearItLoud.exe
+Source: "..\publish\win-x64\HearItLoud.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Helper scripts
 Source: "scripts\install-eqapo.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
@@ -63,7 +63,7 @@ Filename: "powershell.exe"; \
 ; Step 2: run --auto so the user has a working config the moment they reboot
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\run-autotune.ps1"" -ExePath ""{app}\{#MyAppExeName}"""; \
-  StatusMsg: "Detecting hardware and installing Warzone EQ config..."; \
+  StatusMsg: "Detecting hardware and installing Hear It Loud config..."; \
   Flags: runhidden waituntilterminated; \
   Tasks: runautotune
 
@@ -81,7 +81,8 @@ begin
   if CurStep = ssPostInstall then
   begin
     MsgBox(
-      'Warzone EQ is installed.' + #13#10 + #13#10 +
+      'Hear It Loud is installed.' + #13#10 +
+      'by MasterMind George' + #13#10 + #13#10 +
       'Windows will now reboot to activate Equalizer APO.' + #13#10 + #13#10 +
       'After reboot:' + #13#10 +
       '  1. Open Warzone' + #13#10 +

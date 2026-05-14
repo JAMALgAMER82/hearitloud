@@ -40,7 +40,7 @@ var detectOption = new Option<bool>("--detect", description: "Detect current hea
 var installOption = new Option<bool>("--install", description: "Write the generated config into the Equalizer APO config directory.");
 var autoOption = new Option<bool>("--auto", description: "One-shot: detect hardware, route to detected DAC's Game endpoint, install. Sensible defaults for everything.");
 
-var root = new RootCommand("Warzone EQ — generate, detect, and install Equalizer APO configs for Call of Duty Warzone.")
+var root = new RootCommand("Hear It Loud — by MasterMind George. Generate, detect, and install Equalizer APO configs for Call of Duty Warzone.")
 {
     modeOption, curveOption, intensityOption, headphoneOption, dacOption,
     linearPhaseOption, adaptiveLoudnessOption, widerOption, noCompressorOption,
