@@ -1,0 +1,29 @@
+﻿# warzone\current.txt — Competitive mode
+Device: Speakers Sound Blaster GC7 Game
+
+Stage: pre-mix
+
+Channel: L R
+Filter: ON HP Fc 80 Hz
+
+Channel: FL FR
+Preamp: -3.0 dB
+
+Channel: FC
+Preamp: -6.0 dB
+Plugin: "TDR Nova" -bandA-thresh -28.0 -bandA-ratio 4.0 -bandA-fLow 200 -bandA-fHigh 5000
+
+Channel: BL BR SL SR
+Preamp: 2.0 dB
+Plugin: "TDR Nova" -bandB-freq 3000 -bandB-gain +5.0 -bandB-Q 1.5
+
+Channel: LFE
+Preamp: -12.0 dB
+
+Stage: post-mix
+
+Include: warzone\hrir\hesuvi-active.wav
+Include: warzone\headphone-correction\HD600.txt
+Include: warzone\fps-curves\moderate.txt
+Plugin: "ReaXcomp" -band 1 -freq-low 2000 -freq-high 4500 -threshold -42.0 -ratio 1:2 -attack 5 -release 80
+Plugin: "LoudMax" -ceiling -1.0
