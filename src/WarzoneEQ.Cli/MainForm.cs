@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Runtime.Versioning;
 using System.Windows.Forms;
 using WarzoneEQ.ConfigGenerator.Models;
+using WarzoneEQ.WindowsIntegration.Updates;
 
 namespace WarzoneEQ.Cli;
 
@@ -19,7 +20,10 @@ public sealed class MainForm : Form
     private readonly TextBox _log;
     private readonly Button[] _easyButtons;
     private readonly AdvancedTab _advanced;
+    private readonly Label _updateStatusLabel;
+    private readonly Button _btnCheckUpdate;
     private CancellationTokenSource? _cts;
+    private UpdateInfo? _pendingUpdate;
 
     public MainForm() : this(initialPreset: null) { }
 
@@ -91,21 +95,68 @@ public sealed class MainForm : Form
         var logPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 4, 20, 16) };
         logPanel.Controls.Add(_log);
 
-        var footer = new Label
+        var statusBar = new TableLayoutPanel
         {
-            Text = "Easy Mode for first-time setup. Advanced tab to tune the chain by hand.",
             Dock = DockStyle.Bottom,
-            Height = 28,
+            Height = 34,
+            ColumnCount = 3,
+            RowCount = 1,
+            BackColor = BgDarker,
+            Padding = new Padding(20, 4, 20, 4),
+        };
+        statusBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
+        statusBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        statusBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        statusBar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var versionLabel = new Label
+        {
+            Text = "v" + UpdateChecker.CurrentVersion,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = FgMuted,
+            BackColor = BgDarker,
+            Font = new Font("Segoe UI", 9F),
+        };
+        _updateStatusLabel = new Label
+        {
+            Text = "Checking for updates…",
+            Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
             ForeColor = FgMuted,
             BackColor = BgDarker,
+            Font = new Font("Segoe UI", 9F, FontStyle.Italic),
         };
+        _btnCheckUpdate = new Button
+        {
+            Text = "Check for Updates",
+            Dock = DockStyle.Fill,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(70, 90, 110),
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 9F),
+            UseVisualStyleBackColor = false,
+        };
+        _btnCheckUpdate.FlatAppearance.BorderSize = 0;
+        _btnCheckUpdate.Click += async (_, _) =>
+        {
+            if (_pendingUpdate is not null) await InstallPendingUpdateAsync();
+            else await CheckForUpdatesAsync();
+        };
+
+        statusBar.Controls.Add(versionLabel, 0, 0);
+        statusBar.Controls.Add(_updateStatusLabel, 1, 0);
+        statusBar.Controls.Add(_btnCheckUpdate, 2, 0);
 
         Controls.Add(logPanel);
         Controls.Add(tabs);
         Controls.Add(subtitle);
         Controls.Add(title);
-        Controls.Add(footer);
+        Controls.Add(statusBar);
+
+        // Kick off a background update check as soon as the form is visible.
+        // Silent when up-to-date or offline; shows a yellow banner if newer.
+        Shown += async (_, _) => await CheckForUpdatesAsync();
 
         // Restore last-applied Advanced controls, or honor an explicit preset
         // passed in (e.g. from double-clicking a .warzeq file).
@@ -122,6 +173,86 @@ public sealed class MainForm : Form
     }
 
     internal void OnAdvancedApplied(WorkflowOptions options) => Settings.Save(options);
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (IsDisposed) return;
+        _btnCheckUpdate.Enabled = false;
+        _updateStatusLabel.Text = "Checking for updates…";
+        _updateStatusLabel.ForeColor = FgMuted;
+        try
+        {
+            var info = await UpdateChecker.CheckAsync();
+            if (IsDisposed) return;
+            if (info is null)
+            {
+                _pendingUpdate = null;
+                _updateStatusLabel.Text = "Up to date.";
+                _updateStatusLabel.ForeColor = FgMuted;
+                _btnCheckUpdate.Text = "Check for Updates";
+                _btnCheckUpdate.BackColor = Color.FromArgb(70, 90, 110);
+            }
+            else
+            {
+                _pendingUpdate = info;
+                _updateStatusLabel.Text = $"Update available: {info.LatestTag}";
+                _updateStatusLabel.ForeColor = AccentGold;
+                _btnCheckUpdate.Text = "Update Now";
+                _btnCheckUpdate.BackColor = Color.FromArgb(50, 130, 60);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (IsDisposed) return;
+            _updateStatusLabel.Text = "Update check failed (offline?)";
+            _updateStatusLabel.ForeColor = FgMuted;
+            Log($"[update] check failed: {ex.Message}");
+        }
+        finally
+        {
+            if (!IsDisposed) _btnCheckUpdate.Enabled = true;
+        }
+    }
+
+    private async Task InstallPendingUpdateAsync()
+    {
+        if (_pendingUpdate is null) return;
+        var info = _pendingUpdate;
+        var sizeMb = info.InstallerSizeBytes / 1024 / 1024;
+        var confirm = MessageBox.Show(
+            $"Download and install {info.LatestTag}?\n\n" +
+            $"Size: ~{sizeMb} MB\n\n" +
+            "Your settings (Advanced tab values + any saved presets) and the" +
+            " current Equalizer APO chain will be preserved.\n\n" +
+            "The app will close, the installer will run silently in the background," +
+            " and the app will reopen once the upgrade finishes.",
+            "Hear It Loud — Update Available",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Information);
+        if (confirm != DialogResult.Yes) return;
+
+        _btnCheckUpdate.Enabled = false;
+        ClearLog();
+        Log($"=== Updating to {info.LatestTag} ===");
+        Log("");
+        try
+        {
+            var path = await UpdateChecker.DownloadAsync(info.InstallerUrl, Log);
+            Log("");
+            Log("Launching installer. You'll see a UAC prompt (one click — needed");
+            Log("because EQ APO's config dir is under Program Files).");
+            UpdateChecker.LaunchInstaller(path);
+            // Installer will close us via CloseApplications=yes; we just wait briefly.
+            await Task.Delay(2000);
+            Application.Exit();
+        }
+        catch (Exception ex)
+        {
+            Log("");
+            Log($"[update] failed: {ex.Message}");
+            _btnCheckUpdate.Enabled = true;
+        }
+    }
 
     private Button[] BuildEasyTab(TabPage tab)
     {

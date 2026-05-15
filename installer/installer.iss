@@ -2,7 +2,7 @@
 ; Bundles HearItLoud.exe + bootstraps Equalizer APO + runs --auto.
 
 #define MyAppName        "Hear It Loud"
-#define MyAppVersion     "1.1.1"
+#define MyAppVersion     "1.1.2"
 #define MyAppPublisher   "MasterMind George"
 #define MyAppURL         "https://github.com/yourname/hearitloud"
 #define MyAppExeName     "HearItLoud.exe"
@@ -26,6 +26,11 @@ WizardStyle=modern
 SetupIconFile=
 PrivilegesRequired=admin
 AlwaysRestart=yes
+; In-place upgrades: detect a running HearItLoud.exe and close it cleanly,
+; then re-launch the GUI after files are replaced. Needed for the in-app
+; "Check for Updates → Update Now" flow (Windows locks running .exes).
+CloseApplications=yes
+RestartApplications=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
