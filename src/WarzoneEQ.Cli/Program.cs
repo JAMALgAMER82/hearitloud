@@ -40,12 +40,13 @@ var noCompressorOption = new Option<bool>("--no-compressor", description: "Disab
 var detectOption = new Option<bool>("--detect", description: "Detect current headphones + DAC and exit.");
 var installOption = new Option<bool>("--install", description: "Write the generated config into the Equalizer APO config directory.");
 var autoOption = new Option<bool>("--auto", description: "One-shot: detect hardware, route to detected DAC's Game endpoint, install. Sensible defaults for everything.");
+var basicOption = new Option<bool>("--basic", description: "Omit Plugin: and HRIR Include lines so the chain works on vanilla Equalizer APO (no TDR Nova/ReaXcomp/LoudMax/Wider/HeSuVi required).");
 
 var root = new RootCommand("Hear It Loud — by MasterMind George. Generate, detect, and install Equalizer APO configs for Call of Duty Warzone.")
 {
     modeOption, curveOption, intensityOption, headphoneOption, dacOption,
     linearPhaseOption, adaptiveLoudnessOption, widerOption, noCompressorOption,
-    detectOption, installOption, autoOption,
+    detectOption, installOption, autoOption, basicOption,
 };
 
 root.SetHandler(context =>
@@ -62,11 +63,19 @@ root.SetHandler(context =>
     var detect           = context.ParseResult.GetValueForOption(detectOption);
     var install          = context.ParseResult.GetValueForOption(installOption);
     var auto             = context.ParseResult.GetValueForOption(autoOption);
+    var basic            = context.ParseResult.GetValueForOption(basicOption);
+
+    // Determine optional-component availability so we can downgrade gracefully.
+    bool vstAvailable = !basic && DetectVstPluginsAvailable();
+    bool hrirAvailable = !basic && DetectHesuviInstalled();
 
     if (detect)
     {
         var snapshot = DetectAudio();
         PrintDetection(snapshot);
+        Console.WriteLine();
+        Console.WriteLine($"  VST plugins available: {(vstAvailable ? "yes" : "no")}");
+        Console.WriteLine($"  HeSuVi (HRIR) installed: {(hrirAvailable ? "yes" : "no")}");
         return;
     }
 
@@ -76,20 +85,20 @@ root.SetHandler(context =>
         Console.WriteLine("Detected hardware:");
         PrintDetection(snapshot);
         Console.WriteLine();
+        Console.WriteLine($"VST plugins available: {(vstAvailable ? "yes" : "no — falling back to basic chain")}");
+        Console.WriteLine($"HeSuVi installed:      {(hrirAvailable ? "yes" : "no — skipping HRIR Include")}");
+        Console.WriteLine();
 
         var autoHeadphone = snapshot.PrimaryHeadphone?.AutoeqSlug;
         var autoDac = snapshot.MultiEndpointDac?.GameEndpoint;
-        if (autoHeadphone is null && autoDac is null)
-        {
-            Console.Error.WriteLine("No recognized headphones or DAC detected. Specify --headphone and/or --dac manually.");
-            Environment.Exit(2);
-            return;
-        }
+        // Auto with no recognized hardware still produces a useful generic
+        // chain — just leaves out headphone correction and DAC routing.
 
         var autoInput = BuildProfile(
             mode, curve, intensity,
             autoHeadphone ?? headphone, autoDac ?? dac,
-            linearPhase, adaptiveLoudness, wider, !noCompressor);
+            linearPhase, adaptiveLoudness, wider, !noCompressor,
+            vstAvailable, hrirAvailable);
         InstallProfile(autoInput);
         TryEnableLoudnessEq(snapshot.MultiEndpointDac?.GameEndpoint);
         return;
@@ -97,7 +106,8 @@ root.SetHandler(context =>
 
     var input = BuildProfile(
         mode, curve, intensity, headphone, dac,
-        linearPhase, adaptiveLoudness, wider, !noCompressor);
+        linearPhase, adaptiveLoudness, wider, !noCompressor,
+        vstAvailable, hrirAvailable);
 
     if (install) { InstallProfile(input); return; }
 
@@ -109,7 +119,8 @@ return await root.InvokeAsync(args);
 static ProfileInput BuildProfile(
     AudioMode mode, FpsCurveName curve, double intensity,
     string? headphone, string? dac,
-    bool linearPhase, bool adaptiveLoudness, bool wider, bool footstepCompressor)
+    bool linearPhase, bool adaptiveLoudness, bool wider, bool footstepCompressor,
+    bool enableVstPlugins, bool enableHrirInclude)
     => new(mode)
     {
         FpsCurve = curve,
@@ -120,7 +131,34 @@ static ProfileInput BuildProfile(
         EnableAdaptiveLoudness = adaptiveLoudness,
         EnablePolyverseWider = wider,
         EnableFootstepCompressor = footstepCompressor,
+        EnableVstPlugins = enableVstPlugins,
+        EnableHrirInclude = enableHrirInclude,
     };
+
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+static bool DetectVstPluginsAvailable()
+{
+    var eqApoPath = Microsoft.Win32.Registry.GetValue(
+        @"HKEY_LOCAL_MACHINE\SOFTWARE\EqualizerAPO", "InstallPath", null) as string;
+    if (string.IsNullOrEmpty(eqApoPath)) return false;
+    var vstDir = Path.Combine(eqApoPath, "VSTPlugins");
+    if (!Directory.Exists(vstDir)) return false;
+    // Check for at least TDR Nova and LoudMax — the two most-used plugins in our chain.
+    var files = Directory.GetFiles(vstDir, "*.dll", SearchOption.TopDirectoryOnly);
+    bool hasTdrNova = files.Any(f => Path.GetFileName(f).Contains("TDR Nova", StringComparison.OrdinalIgnoreCase));
+    bool hasLoudMax = files.Any(f => Path.GetFileName(f).Contains("LoudMax", StringComparison.OrdinalIgnoreCase));
+    return hasTdrNova && hasLoudMax;
+}
+
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+static bool DetectHesuviInstalled()
+{
+    var eqApoPath = Microsoft.Win32.Registry.GetValue(
+        @"HKEY_LOCAL_MACHINE\SOFTWARE\EqualizerAPO", "InstallPath", null) as string;
+    if (string.IsNullOrEmpty(eqApoPath)) return false;
+    // HeSuVi ships HRIR WAVs into EqualizerAPO\config\HeSuVi\hrir\
+    return Directory.Exists(Path.Combine(eqApoPath, "config", "HeSuVi", "hrir"));
+}
 
 static DetectionSnapshot DetectAudio()
 {

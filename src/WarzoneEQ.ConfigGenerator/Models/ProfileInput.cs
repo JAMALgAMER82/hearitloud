@@ -24,5 +24,20 @@ public sealed record ProfileInput(AudioMode Mode)
     public bool EnableAdaptiveLoudness { get; init; } = false;
     public bool EnablePolyverseWider { get; init; } = false;
 
+    /// <summary>
+    /// When false, the generated config omits Plugin: lines (TDR Nova, ReaXcomp,
+    /// LoudMax, Polyverse Wider). Use this on machines where the VST plugins
+    /// aren't installed - EQ APO would log warnings about missing plugins
+    /// otherwise. The Filter / Preamp / Include lines still work and provide
+    /// the core EQ shaping.
+    /// </summary>
+    public bool EnableVstPlugins { get; init; } = true;
+
+    /// <summary>
+    /// When false, the HRIR Include line is omitted. Use this when HeSuVi
+    /// isn't installed - EQ APO logs a warning for missing Include targets.
+    /// </summary>
+    public bool EnableHrirInclude { get; init; } = true;
+
     public string HrirIncludePath { get; init; } = @"warzone\hrir\hesuvi-active.wav";
 }

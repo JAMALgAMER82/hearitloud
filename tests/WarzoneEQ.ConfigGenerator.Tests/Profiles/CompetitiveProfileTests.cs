@@ -73,6 +73,31 @@ public class CompetitiveProfileTests
     }
 
     [Fact]
+    public void Basic_mode_omits_all_VST_plugin_lines()
+    {
+        var output = new CompetitiveProfile().Generate(new ProfileInput(AudioMode.Competitive)
+        {
+            EnableVstPlugins = false,
+        });
+        output.Should().NotContain("TDR Nova");
+        output.Should().NotContain("LoudMax");
+        output.Should().NotContain("ReaXcomp");
+        output.Should().NotContain("Polyverse Wider");
+        output.Should().Contain("Filter: ON HP Fc 80 Hz");
+        output.Should().Contain(@"Include: warzone\fps-curves\moderate.txt");
+    }
+
+    [Fact]
+    public void HrirInclude_disabled_omits_hesuvi_include_line()
+    {
+        var output = new CompetitiveProfile().Generate(new ProfileInput(AudioMode.Competitive)
+        {
+            EnableHrirInclude = false,
+        });
+        output.Should().NotContain(@"Include: warzone\hrir\hesuvi-active.wav");
+    }
+
+    [Fact]
     public Task Snapshot_HD600_GC7_Moderate_FullIntensity()
     {
         var input = new ProfileInput(AudioMode.Competitive)

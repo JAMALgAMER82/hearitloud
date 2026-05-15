@@ -52,7 +52,12 @@ HearItLoud.exe --install --mode Competitive
 
 # Best of all worlds (auto-detect + install with sensible defaults)
 HearItLoud.exe --auto
+
+# Vanilla EQ APO only (no TDR Nova / LoudMax / HeSuVi required)
+HearItLoud.exe --auto --basic
 ```
+
+`--auto` already downgrades automatically when VST plugins or HeSuVi aren't installed — `--detect` reports what was found. Use `--basic` to force a plugin-free config even when the optional components are present.
 
 ## Architecture
 
@@ -82,7 +87,7 @@ Internal library namespaces remain `WarzoneEQ.*` (renaming would be massive chur
 dotnet test
 ```
 
-101 tests, all passing.
+105 tests, all passing.
 
 ## Anti-cheat compliance
 

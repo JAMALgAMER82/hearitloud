@@ -30,19 +30,18 @@ public sealed class CinematicProfile : IProfileGenerator
         EmitStage(sb, new ChannelStage(
             new[] { Channel.FC },
             PreampDb: -6,
-            Plugins: new Plugin[]
-            {
-                TdrNova.SpectralDucker(thresholdDb: -28, ratio: 4, freqLow: 200, freqHigh: 5000),
-            }));
+            Plugins: input.EnableVstPlugins
+                ? new Plugin[] { TdrNova.SpectralDucker(thresholdDb: -28, ratio: 4, freqLow: 200, freqHigh: 5000) }
+                : null));
 
-        var rearPlugins = new List<Plugin> { BuildTransientShaper(input) };
-        if (input.EnablePolyverseWider)
-            rearPlugins.Add(PolyverseWider.Width(140));
+        var rearPlugins = new List<Plugin>();
+        if (input.EnableVstPlugins) rearPlugins.Add(BuildTransientShaper(input));
+        if (input.EnableVstPlugins && input.EnablePolyverseWider) rearPlugins.Add(PolyverseWider.Width(140));
 
         EmitStage(sb, new ChannelStage(
             new[] { Channel.BL, Channel.BR, Channel.SL, Channel.SR },
             PreampDb: 2,
-            Plugins: rearPlugins));
+            Plugins: rearPlugins.Count > 0 ? rearPlugins : null));
 
         EmitStage(sb, new ChannelStage(
             new[] { Channel.LFE },
@@ -52,21 +51,23 @@ public sealed class CinematicProfile : IProfileGenerator
         sb.AppendLine("Stage: post-mix");
         sb.AppendLine();
 
-        sb.AppendLine($"Include: {input.HrirIncludePath}");
+        if (input.EnableHrirInclude)
+            sb.AppendLine($"Include: {input.HrirIncludePath}");
         if (input.HeadphoneCorrection.IncludePath is { } hcPath)
             sb.AppendLine($"Include: {hcPath}");
 
         EmitFpsCurve(sb, input);
 
-        if (input.EnableAdaptiveLoudness)
+        if (input.EnableVstPlugins && input.EnableAdaptiveLoudness)
             sb.AppendLine(@"Plugin: 'warzone\jsfx\adaptive-loudness.jsfx'");
 
-        if (input.EnableFootstepCompressor)
+        if (input.EnableVstPlugins && input.EnableFootstepCompressor)
             sb.AppendLine(ReaXcomp.UpwardCompressor(
                 bandIndex: 1, freqLowHz: 2000, freqHighHz: 4500,
                 thresholdDb: -42, ratio: "1:2", attackMs: 5, releaseMs: 80).ToConfigLine());
 
-        sb.AppendLine(LoudMax.Limiter(-1.0).ToConfigLine());
+        if (input.EnableVstPlugins)
+            sb.AppendLine(LoudMax.Limiter(-1.0).ToConfigLine());
 
         return sb.ToString();
     }
