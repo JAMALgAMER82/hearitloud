@@ -1,6 +1,18 @@
 using System.CommandLine;
+using System.Runtime.InteropServices;
 using WarzoneEQ.Cli;
 using WarzoneEQ.ConfigGenerator.Models;
+
+// Subsystem is Windows (no console window in GUI mode). When CLI args are
+// passed, attach to the parent terminal's console so stdout/stderr still flow
+// to the shell that invoked us. ATTACH_PARENT_PROCESS = -1.
+if (args.Length > 0 && OperatingSystem.IsWindows())
+{
+    _ = AttachConsole(-1);
+}
+
+[DllImport("kernel32.dll", SetLastError = true)]
+static extern bool AttachConsole(int processId);
 
 // Dual-mode entry point:
 //   - no args                  -> open WinForms GUI
