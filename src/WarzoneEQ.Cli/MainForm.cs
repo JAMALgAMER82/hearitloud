@@ -129,12 +129,12 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 3,
+            RowCount = 4,
             BackColor = BgDark,
         };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        for (int i = 0; i < 3; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.3F));
+        for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
 
         var btnAuto      = MakeBigButton("Auto Setup\n(recommended for first run)", Color.FromArgb(50, 130, 60));
         var btnFootstep  = MakeBigButton("Footstep Priority\n(max competitive clarity)", Color.FromArgb(180, 110, 30));
@@ -142,6 +142,7 @@ public sealed class MainForm : Form
         var btnDetect    = MakeBigButton("Detect My Hardware", Color.FromArgb(80, 80, 90));
         var btnSettings  = MakeBigButton("Open Windows Sound Settings", Color.FromArgb(80, 80, 90));
         var btnPlugins   = MakeBigButton("Get Optional Plugins\n(for the full-quality chain)", Color.FromArgb(80, 80, 90));
+        var btnCheatSheet = MakeBigButton("Show Audio Cheat Sheet\n(in-game + Windows settings to use)", Color.FromArgb(120, 70, 140));
 
         grid.Controls.Add(btnAuto, 0, 0);
         grid.Controls.Add(btnFootstep, 1, 0);
@@ -149,17 +150,63 @@ public sealed class MainForm : Form
         grid.Controls.Add(btnDetect, 1, 1);
         grid.Controls.Add(btnSettings, 0, 2);
         grid.Controls.Add(btnPlugins, 1, 2);
+        grid.Controls.Add(btnCheatSheet, 0, 3);
+        grid.SetColumnSpan(btnCheatSheet, 2);
         tab.Controls.Add(grid);
 
-        btnAuto.Click     += (_, _) => Run("Auto Setup", w => Workflows.Auto(w, new WorkflowOptions()));
-        btnFootstep.Click += (_, _) => Run("Footstep Priority", w => Workflows.Auto(w, new WorkflowOptions(FootstepPriority: true)));
-        btnDiagnose.Click += (_, _) => Run("Diagnose & Fix", w => Workflows.Diagnose(w, applyFix: true));
-        btnDetect.Click   += (_, _) => Run("Detect Hardware", w => Workflows.Detect(w, basic: false));
-        btnSettings.Click += (_, _) => OpenSoundSettings();
-        btnPlugins.Click  += (_, _) => OpenPluginGuide();
+        btnAuto.Click       += (_, _) => Run("Auto Setup", w => Workflows.Auto(w, new WorkflowOptions()));
+        btnFootstep.Click   += (_, _) => Run("Footstep Priority", w => Workflows.Auto(w, new WorkflowOptions(FootstepPriority: true)));
+        btnDiagnose.Click   += (_, _) => Run("Diagnose & Fix", w => Workflows.Diagnose(w, applyFix: true));
+        btnDetect.Click     += (_, _) => Run("Detect Hardware", w => Workflows.Detect(w, basic: false));
+        btnSettings.Click   += (_, _) => OpenSoundSettings();
+        btnPlugins.Click    += (_, _) => OpenPluginGuide();
+        btnCheatSheet.Click += (_, _) => ShowCheatSheet();
 
-        return new[] { btnAuto, btnFootstep, btnDiagnose, btnDetect, btnSettings, btnPlugins };
+        return new[] { btnAuto, btnFootstep, btnDiagnose, btnDetect, btnSettings, btnPlugins, btnCheatSheet };
     }
+
+    private void ShowCheatSheet()
+    {
+        ClearLog();
+        foreach (var line in AudioCheatSheet.Split('\n')) Log(line.TrimEnd('\r'));
+    }
+
+    private const string AudioCheatSheet = @"=== Warzone Audio Cheat Sheet ===
+
+IN-GAME (Settings -> Audio)
+  Audio Mix:                Headphones Bass Cut   (REQUIRED)
+  Surround Sound:           7.1                   (REQUIRED)
+  Music Volume:             0                     (REQUIRED)
+  Enhanced Headphone Mode:  OFF                   (REQUIRED)
+  Master Volume:            60-75% (not max — clips above 80%)
+  Voice Chat Volume:        30-50% lower than master
+  Voice Chat Effect:        None (no megaphone/helmet)
+  Hit Marker Sound:         leave ON
+  Mono Audio:               OFF
+
+WINDOWS (Sound Control Panel — click ""Open Windows Sound Settings"" above)
+  1. Set the GAME endpoint as the default playback device.
+       (Sound Blaster GC7/G6 owners: pick the one named ""... Game"".)
+  2. Communications tab -> ""Do nothing"" (disables 80% auto-ducking
+       when Discord etc. detects voice activity — kills footsteps).
+  3. Endpoint -> Properties -> Advanced -> 24-bit, 48000 Hz
+       (Studio Quality). Matches Warzone's native rate, no resampling.
+  4. Endpoint -> Properties -> Spatial sound -> Off.
+       Hear It Loud's HRIR replaces it; doubling them smears the image.
+  5. Endpoint -> Properties -> Advanced ->
+       uncheck ""Allow applications to take exclusive control"".
+
+HARDWARE / PRACTICAL
+  - Wired > Bluetooth. BT adds 100-300ms latency and most codecs
+    (SBC, AAC) roll off above 8 kHz — exactly where footsteps live.
+  - Volume sweet spot: comfortable conversation level. Too loud and
+    your ear's self-protective reflex compresses quiet detail.
+  - Battle.net / Steam app volume = max. Let the in-game master be
+    the only attenuator (less quantization noise).
+
+If a setting in this list looks wrong on your friend's PC, click
+""Diagnose & Auto-Fix"" — it catches several of the Windows-side
+issues automatically and prints the click path for the rest.";
 
     internal static Button MakeBigButton(string text, Color accent)
     {
