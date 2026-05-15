@@ -48,10 +48,11 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docs\superpowers\specs\2026-05-14-warzone-eq-design.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--auto"; Comment: "Run auto-detect + install"
-Name: "{group}\{#MyAppName} (detect only)"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--detect"
+; Shortcuts launch the GUI (no args = GUI mode). Power users can still run
+; HearItLoud.exe --auto / --diagnose / etc. from a terminal.
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Comment: "Launch Hear It Loud"
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--auto"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 ; Step 1: install / verify Equalizer APO (downloads if missing).
@@ -71,7 +72,11 @@ Filename: "powershell.exe"; \
   Tasks: runautotune
 
 [UninstallRun]
-; No special uninstall steps for v1 — EQ APO stays installed (it's a system component).
+; Remove the Hear It Loud block from EQ APO's master config so we don't leave
+; a dangling Include line pointing at a deleted file. EQ APO itself stays —
+; it's a system component shared with other apps.
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--uninstall-cleanup"; \
+  Flags: runhidden waituntilterminated; RunOnceId: "HearItLoudCleanup"
 
 [Code]
 function InitializeSetup(): Boolean;
@@ -105,12 +110,16 @@ begin
       'by MasterMind George' + #13#10 + #13#10 +
       'Windows will now reboot to activate Equalizer APO.' + #13#10 + #13#10 +
       'After reboot:' + #13#10 +
-      '  1. Open Warzone' + #13#10 +
-      '  2. Settings -> Audio:' + #13#10 +
+      '  1. Double-click the Hear It Loud icon on your desktop' + #13#10 +
+      '       (a small app window will open).' + #13#10 +
+      '  2. Click "Auto Setup" (the big green button) and wait.' + #13#10 +
+      '  3. Open Warzone' + #13#10 +
+      '  4. Settings -> Audio:' + #13#10 +
       '       Audio Mix = Headphones Bass Cut' + #13#10 +
       '       Surround Sound = 7.1' + #13#10 +
       '       Music Volume = 0' + #13#10 +
       '       Enhanced Headphone Mode = OFF' + #13#10 + #13#10 +
+      'If anything sounds wrong later, click "Diagnose & Auto-Fix" in the app.' + #13#10 +
       'Footsteps will be louder and more directional. Good luck.',
       mbInformation, MB_OK);
   end;

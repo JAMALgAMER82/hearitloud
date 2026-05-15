@@ -12,14 +12,31 @@ They double-click it. The installer:
 1. Downloads + silently installs **Equalizer APO** (free, open-source, the audio engine).
 2. Copies **HearItLoud.exe** to `C:\Program Files\Hear It Loud\`.
 3. Auto-detects their headphones + DAC and writes a personalized EQ config.
-4. Creates Start-menu and desktop shortcuts.
+4. Creates Start-menu and desktop shortcuts (the icon opens a small app — no terminal required).
 5. Reboots Windows (Equalizer APO requires it).
 
-After reboot, footsteps are louder and more directional in every CoD title. They need to set Warzone audio settings once (the installer tells them how):
+After reboot, they double-click the desktop icon and click **Auto Setup**. The app does the rest. They need to set Warzone audio settings once (the installer tells them how):
 
 > **Settings → Audio → Audio Mix = Headphones Bass Cut, Surround = 7.1, Music = 0, Enhanced Headphone Mode = OFF**
 
-That's it. No CLI required, no tweaking sliders, no manual config files.
+The app window has six buttons:
+
+| Button | What it does |
+|---|---|
+| **Auto Setup** | Detects hardware and installs the standard footstep-tuned EQ |
+| **Footstep Priority** | Max-competitive chain (FC ducked, rears boosted, LFE killed) |
+| **Diagnose & Auto-Fix** | One-click repair if anything sounds wrong |
+| **Detect My Hardware** | Shows what headphones + DAC the app found |
+| **Open Windows Sound Settings** | Jump straight to the speaker properties they need |
+| **Get Optional Plugins** | Links to TDR Nova / LoudMax / HeSuVi downloads for the full chain |
+
+### Heads-up about Windows SmartScreen
+
+The installer isn't code-signed (proper EV certs cost ~$400/yr — not yet worth it for a free indie app). The first time your friend runs `HearItLoud-Setup.exe`, Windows will show:
+
+> *Windows protected your PC — Microsoft Defender SmartScreen prevented an unrecognized app from starting.*
+
+That's normal. Tell them: **click "More info" → "Run anyway"**. After install, the app itself launches normally with no further warnings.
 
 ## Building the installer from source
 
@@ -115,7 +132,7 @@ Internal library namespaces remain `WarzoneEQ.*` (renaming would be massive chur
 dotnet test
 ```
 
-143 tests, all passing.
+146 tests, all passing.
 
 ## Anti-cheat compliance
 

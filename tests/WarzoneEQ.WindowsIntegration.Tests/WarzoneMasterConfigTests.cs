@@ -79,6 +79,36 @@ public class WarzoneMasterConfigTests
     }
 
     [Fact]
+    public void RemoveManagedBlock_strips_block_and_preserves_surrounding_content()
+    {
+        var before = "Preamp: -2 dB\nFilter: ON LP Fc 16000 Hz\n";
+        var after = "Filter: ON PK Fc 4000 Hz Gain +3 dB\n";
+        var input = before + WarzoneMasterConfig.BuildBlock() + Environment.NewLine + after;
+        var cleaned = WarzoneMasterConfig.RemoveManagedBlock(input);
+        cleaned.Should().NotContain(WarzoneMasterConfig.BlockStartMarker);
+        cleaned.Should().NotContain(WarzoneMasterConfig.BlockEndMarker);
+        cleaned.Should().Contain("Preamp: -2 dB");
+        cleaned.Should().Contain("Filter: ON PK Fc 4000 Hz Gain +3 dB");
+    }
+
+    [Fact]
+    public void RemoveManagedBlock_also_strips_legacy_bare_include_lines()
+    {
+        var input = "Preamp: 0 dB\nInclude: warzone\\current.txt\nFilter: ON HP Fc 80 Hz\n";
+        var cleaned = WarzoneMasterConfig.RemoveManagedBlock(input);
+        cleaned.Should().NotContain("warzone\\current.txt");
+        cleaned.Should().Contain("Preamp: 0 dB");
+        cleaned.Should().Contain("Filter: ON HP Fc 80 Hz");
+    }
+
+    [Fact]
+    public void RemoveManagedBlock_on_clean_config_is_noop()
+    {
+        var input = "Preamp: 0 dB\nFilter: ON HP Fc 80 Hz\n";
+        WarzoneMasterConfig.RemoveManagedBlock(input).Should().Be(input);
+    }
+
+    [Fact]
     public void HasLegacyBareInclude_distinguishes_bare_from_managed()
     {
         WarzoneMasterConfig.HasLegacyBareInclude("Include: warzone\\current.txt\n").Should().BeTrue();

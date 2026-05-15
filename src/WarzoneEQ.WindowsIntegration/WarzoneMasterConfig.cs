@@ -62,6 +62,31 @@ public static class WarzoneMasterConfig
         return existing + sep + Environment.NewLine + block + Environment.NewLine;
     }
 
+    // Strips our managed block (and any pre-conditional bare Include line) so
+    // the master config can be restored to its pre-Hear-It-Loud state during
+    // uninstall. Leaves all other content untouched.
+    public static string RemoveManagedBlock(string content)
+    {
+        var start = content.IndexOf(BlockStartMarker, StringComparison.Ordinal);
+        var end = content.IndexOf(BlockEndMarker, StringComparison.Ordinal);
+        if (start >= 0 && end > start)
+        {
+            var before = content.Substring(0, start).TrimEnd('\r', '\n', ' ', '\t');
+            var after = content.Substring(end + BlockEndMarker.Length).TrimStart('\r', '\n');
+            content = before
+                + (before.Length > 0 && after.Length > 0 ? Environment.NewLine : "")
+                + after;
+        }
+        if (content.Contains(IncludeLine, StringComparison.Ordinal))
+        {
+            content = string.Join(Environment.NewLine, content
+                .Split('\n')
+                .Where(line => !line.TrimEnd('\r').Equals(IncludeLine, StringComparison.Ordinal))
+                .Select(line => line.TrimEnd('\r')));
+        }
+        return content;
+    }
+
     public static bool HasManagedBlock(string content)
         => content.Contains(BlockStartMarker, StringComparison.Ordinal)
         && content.Contains(BlockEndMarker, StringComparison.Ordinal);

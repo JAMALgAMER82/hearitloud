@@ -1,0 +1,292 @@
+using System.Runtime.Versioning;
+using WarzoneEQ.ConfigGenerator;
+using WarzoneEQ.ConfigGenerator.Models;
+using WarzoneEQ.DeviceDetection;
+using WarzoneEQ.DeviceDetection.Detection;
+using WarzoneEQ.DeviceDetection.Matching;
+using WarzoneEQ.WindowsIntegration;
+using WarzoneEQ.WindowsIntegration.Diagnostics;
+using WarzoneEQ.WindowsIntegration.EqApo;
+using WarzoneEQ.WindowsIntegration.Files;
+using WarzoneEQ.WindowsIntegration.LoudnessEq;
+
+namespace WarzoneEQ.Cli;
+
+public sealed record WorkflowOptions(
+    AudioMode Mode = AudioMode.Competitive,
+    FpsCurveName Curve = FpsCurveName.Moderate,
+    double Intensity = 1.0,
+    string? Headphone = null,
+    string? Dac = null,
+    bool LinearPhase = false,
+    bool AdaptiveLoudness = false,
+    bool Wider = false,
+    bool FootstepCompressor = true,
+    bool Basic = false,
+    bool FootstepPriority = false);
+
+// All long-running operations behind buttons / CLI flags live here so the
+// console entry point and the GUI form can call the same logic without a
+// child-process round trip.
+public static class Workflows
+{
+    [SupportedOSPlatform("windows")]
+    public static DetectionSnapshot DetectHardware()
+    {
+        var db = DeviceDatabase.LoadEmbedded();
+        var enumerator = new WindowsDeviceEnumerator();
+        var matcher = new DeviceMatcher(db);
+        return new DeviceDetectionService(enumerator, matcher).Snapshot();
+    }
+
+    public static void PrintDetection(Action<string> write, DetectionSnapshot snap, bool vstAvailable, bool hrirAvailable)
+    {
+        write($"  Headphone: {snap.PrimaryHeadphone?.Model ?? "(none recognized)"}");
+        if (snap.PrimaryHeadphone is { } hp) write($"             AutoEQ slug: {hp.AutoeqSlug}");
+        write($"  DAC:       {snap.MultiEndpointDac?.Model ?? "(none recognized)"}");
+        if (snap.MultiEndpointDac is { } d)
+        {
+            write($"             Game endpoint:  {d.GameEndpoint}");
+            write($"             Voice endpoint: {d.VoiceEndpoint}");
+        }
+        write($"  Devices scanned: {snap.Devices.Count}");
+        write("");
+        write($"  VST plugins available:   {(vstAvailable ? "yes" : "no")}");
+        write($"  HeSuVi (HRIR) installed: {(hrirAvailable ? "yes" : "no")}");
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static int Detect(Action<string> write, bool basic)
+    {
+        var snap = DetectHardware();
+        bool vst = !basic && DetectVstAvailable();
+        bool hrir = !basic && DetectHesuviInstalled();
+        PrintDetection(write, snap, vst, hrir);
+        return 0;
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static int Auto(Action<string> write, WorkflowOptions opts)
+    {
+        var mode = opts.Mode;
+        var curve = opts.Curve;
+        var intensity = opts.Intensity;
+        if (opts.FootstepPriority)
+        {
+            mode = AudioMode.FootstepHunter;
+            curve = FpsCurveName.Aggressive;
+            intensity = 1.0;
+        }
+
+        bool vst = !opts.Basic && DetectVstAvailable();
+        bool hrir = !opts.Basic && DetectHesuviInstalled();
+
+        var snap = DetectHardware();
+        write("Detected hardware:");
+        PrintDetection(write, snap, vst, hrir);
+        write("");
+        if (!vst) write("(Falling back to basic chain — VST plugins not present.)");
+        if (!hrir) write("(HRIR Include line will be skipped — HeSuVi not present.)");
+        write("");
+
+        var input = BuildInput(opts, mode, curve, intensity,
+            snap.PrimaryHeadphone?.AutoeqSlug ?? opts.Headphone,
+            snap.MultiEndpointDac?.GameEndpoint ?? opts.Dac,
+            vst, hrir);
+        var installCode = Install(write, input);
+        if (installCode != 0) return installCode;
+
+        TryEnableLoudnessEq(write, snap.MultiEndpointDac?.GameEndpoint);
+        return 0;
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static int Install(Action<string> write, ProfileInput input)
+    {
+        var locator = new RegistryEqApoLocator();
+        if (!locator.IsInstalled)
+        {
+            write("[error] Equalizer APO is not installed. Install it first from https://equalizerapo.com.");
+            return 3;
+        }
+        var installer = new WarzoneConfigInstaller(locator, new AtomicFileWriter());
+        var path = installer.Install(input);
+        write("Installed Hear It Loud config to:");
+        write($"  {path}");
+        write("");
+        write("Equalizer APO will hot-reload automatically (no restart needed).");
+        write("In Warzone: Settings -> Audio -> Audio Mix = Headphones Bass Cut,");
+        write("Surround Sound = 7.1, Music = 0, Enhanced Headphone Mode = OFF.");
+        return 0;
+    }
+
+    public static int Print(Action<string> write, ProfileInput input)
+    {
+        foreach (var line in ConfigGenerator.ConfigGenerator.Generate(input).Split('\n'))
+            write(line.TrimEnd('\r'));
+        return 0;
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static int Diagnose(Action<string> write, bool applyFix)
+    {
+        write("Hear It Loud — system diagnostics");
+        write(new string('=', 50));
+        var engine = StandardDiagnostics.ForCurrentMachine();
+        var report = applyFix ? engine.RunAndAutoFix() : engine.Run();
+
+        foreach (var r in report.Results)
+        {
+            var tag = r.Severity switch
+            {
+                DiagnosticSeverity.Ok      => "[ OK ]",
+                DiagnosticSeverity.Warning => "[WARN]",
+                DiagnosticSeverity.Error   => "[FAIL]",
+                _ => "[????]",
+            };
+            write("");
+            write($"{tag} {r.Title}");
+            write($"       {r.Detail}");
+            if (r.Severity != DiagnosticSeverity.Ok && r.ManualFix is { } mf)
+                foreach (var line in mf.Split('\n')) write($"       fix: {line.TrimEnd()}");
+        }
+        write("");
+        write(new string('-', 50));
+        write($"Summary: {report.OkCount} ok, {report.WarnCount} warn, {report.ErrorCount} fail.");
+        if (!applyFix && report.Results.Any(r => r.CanAutoFix))
+            write("Re-run with --diagnose --fix (or click Diagnose & Fix in the app) to apply safe auto-fixes.");
+        return report.AnyFailures ? 1 : 0;
+    }
+
+    public static int RunSelfTest(Action<string> write)
+    {
+        write("Hear It Loud — config generator self-test");
+        write(new string('=', 50));
+        var results = WarzoneEQ.WindowsIntegration.Diagnostics.SelfTest.Run();
+        foreach (var r in results)
+        {
+            var tag = r.Passed ? "[PASS]" : "[FAIL]";
+            write($"{tag} {r.Name}  ({r.Detail})");
+        }
+        var failed = results.Count(r => !r.Passed);
+        write("");
+        write(new string('-', 50));
+        write($"Self-test: {results.Count - failed}/{results.Count} passed.");
+        return failed > 0 ? 1 : 0;
+    }
+
+    // Removes Hear It Loud's managed block from EQ APO's master config.txt.
+    // Called by the installer on uninstall so we don't leave a dangling
+    // Include reference pointing at a deleted file.
+    [SupportedOSPlatform("windows")]
+    public static int UninstallCleanup(Action<string> write)
+    {
+        var locator = new RegistryEqApoLocator();
+        if (!locator.IsInstalled)
+        {
+            write("Equalizer APO not present — nothing to clean up.");
+            return 0;
+        }
+        var masterPath = Path.Combine(locator.ConfigDirectory, "config.txt");
+        if (!File.Exists(masterPath))
+        {
+            write("Master config.txt not found — nothing to clean up.");
+            return 0;
+        }
+        var content = File.ReadAllText(masterPath);
+        if (!WarzoneMasterConfig.HasManagedBlock(content) && !WarzoneMasterConfig.HasLegacyBareInclude(content))
+        {
+            write("No Hear It Loud entries in master config — nothing to clean up.");
+            return 0;
+        }
+        var cleaned = WarzoneMasterConfig.RemoveManagedBlock(content);
+        File.WriteAllText(masterPath, cleaned);
+        write($"Removed Hear It Loud block from {masterPath}.");
+        return 0;
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static bool DetectVstAvailable()
+    {
+        var eqApoPath = Microsoft.Win32.Registry.GetValue(
+            @"HKEY_LOCAL_MACHINE\SOFTWARE\EqualizerAPO", "InstallPath", null) as string;
+        if (string.IsNullOrEmpty(eqApoPath)) return false;
+        var vstDir = Path.Combine(eqApoPath, "VSTPlugins");
+        if (!Directory.Exists(vstDir)) return false;
+        var files = Directory.GetFiles(vstDir, "*.dll", SearchOption.TopDirectoryOnly);
+        bool hasTdrNova = files.Any(f => Path.GetFileName(f).Contains("TDR Nova", StringComparison.OrdinalIgnoreCase));
+        bool hasLoudMax = files.Any(f => Path.GetFileName(f).Contains("LoudMax", StringComparison.OrdinalIgnoreCase));
+        return hasTdrNova && hasLoudMax;
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static bool DetectHesuviInstalled()
+    {
+        var eqApoPath = Microsoft.Win32.Registry.GetValue(
+            @"HKEY_LOCAL_MACHINE\SOFTWARE\EqualizerAPO", "InstallPath", null) as string;
+        if (string.IsNullOrEmpty(eqApoPath)) return false;
+        return Directory.Exists(Path.Combine(eqApoPath, "config", "HeSuVi", "hrir"));
+    }
+
+    public static ProfileInput BuildInput(WorkflowOptions opts) =>
+        BuildInput(opts, opts.Mode, opts.Curve, opts.Intensity, opts.Headphone, opts.Dac,
+            !opts.Basic, !opts.Basic);
+
+    private static ProfileInput BuildInput(
+        WorkflowOptions opts, AudioMode mode, FpsCurveName curve, double intensity,
+        string? headphone, string? dac, bool enableVst, bool enableHrir)
+        => new(mode)
+        {
+            FpsCurve = curve,
+            Intensity = intensity,
+            HeadphoneCorrection = headphone is null ? HeadphoneCorrection.None : new HeadphoneCorrection(headphone),
+            DacEndpoint = dac is null ? DacEndpoint.WindowsDefault : new DacEndpoint(dac),
+            EnableLinearPhase = opts.LinearPhase,
+            EnableAdaptiveLoudness = opts.AdaptiveLoudness,
+            EnablePolyverseWider = opts.Wider,
+            EnableFootstepCompressor = opts.FootstepCompressor,
+            EnableVstPlugins = enableVst,
+            EnableHrirInclude = enableHrir,
+        };
+
+    [SupportedOSPlatform("windows")]
+    private static void TryEnableLoudnessEq(Action<string> write, string? gameEndpointFriendlyName)
+    {
+        if (gameEndpointFriendlyName is null) return;
+        try
+        {
+            var guid = FindRenderEndpointGuid(gameEndpointFriendlyName);
+            if (guid is null)
+            {
+                write($"(Skipped Windows Loudness EQ: endpoint '{gameEndpointFriendlyName}' not found in registry.)");
+                return;
+            }
+            new RegistryLoudnessEqController()
+                .Write(guid, new LoudnessEqState(Enabled: true, ReleaseTime: LoudnessEqState.MinReleaseTime));
+            write($"Windows Loudness EQ enabled (SHORT release) on {gameEndpointFriendlyName}.");
+        }
+        catch (Exception ex)
+        {
+            write($"(Windows Loudness EQ step skipped — {ex.Message})");
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static string? FindRenderEndpointGuid(string friendlyName)
+    {
+        using var renderKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render");
+        if (renderKey is null) return null;
+        foreach (var sub in renderKey.GetSubKeyNames())
+        {
+            using var props = renderKey.OpenSubKey(sub + @"\Properties");
+            if (props is null) continue;
+            var name = props.GetValue("{a45c254e-df1c-4efd-8020-67d146a850e0},14")?.ToString();
+            if (name is null) continue;
+            if (string.Equals(name, friendlyName, StringComparison.OrdinalIgnoreCase)
+                || name.Contains(friendlyName, StringComparison.OrdinalIgnoreCase))
+                return sub;
+        }
+        return null;
+    }
+}
