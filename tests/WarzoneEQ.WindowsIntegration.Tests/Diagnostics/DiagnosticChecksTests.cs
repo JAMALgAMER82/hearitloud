@@ -1,4 +1,5 @@
 using FluentAssertions;
+using WarzoneEQ.WindowsIntegration;
 using WarzoneEQ.WindowsIntegration.Diagnostics;
 using WarzoneEQ.WindowsIntegration.Diagnostics.Checks;
 using WarzoneEQ.WindowsIntegration.EqApo;
@@ -31,16 +32,35 @@ public class DiagnosticChecksTests
     }
 
     [Fact]
-    public void MasterConfigIncludeCheck_Ok_when_line_present()
+    public void MasterConfigIncludeCheck_Ok_when_managed_block_present()
     {
         var fs = new FakeFileSystem();
-        fs.Files[Path.Combine(FakeConfigDir, "config.txt")] = "Include: foo.txt\r\nInclude: warzone\\current.txt\r\n";
+        fs.Files[Path.Combine(FakeConfigDir, "config.txt")] =
+            "Preamp: 0 dB\r\n" + WarzoneMasterConfig.BuildBlock() + "\r\n";
         var r = new MasterConfigIncludeCheck(Installed(), fs).Run();
         r.Severity.Should().Be(DiagnosticSeverity.Ok);
+        r.Detail.Should().Contain("pass through untouched");
     }
 
     [Fact]
-    public void MasterConfigIncludeCheck_Fails_when_line_missing_and_provides_autofix()
+    public void MasterConfigIncludeCheck_Warns_on_legacy_bare_include_and_upgrades_via_autofix()
+    {
+        var fs = new FakeFileSystem();
+        var master = Path.Combine(FakeConfigDir, "config.txt");
+        fs.Files[master] = "Preamp: 0 dB\r\nInclude: warzone\\current.txt\r\n";
+
+        var r = new MasterConfigIncludeCheck(Installed(), fs).Run();
+        r.Severity.Should().Be(DiagnosticSeverity.Warning);
+        r.CanAutoFix.Should().BeTrue();
+        r.Detail.Should().Contain("Discord");
+
+        r.AutoFix!.Invoke();
+        WarzoneMasterConfig.HasManagedBlock(fs.Files[master]).Should().BeTrue();
+        WarzoneMasterConfig.HasLegacyBareInclude(fs.Files[master]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MasterConfigIncludeCheck_Fails_when_chain_not_referenced_and_provides_autofix()
     {
         var fs = new FakeFileSystem();
         var master = Path.Combine(FakeConfigDir, "config.txt");
@@ -50,7 +70,7 @@ public class DiagnosticChecksTests
         r.CanAutoFix.Should().BeTrue();
 
         r.AutoFix!.Invoke();
-        fs.Files[master].Should().Contain(@"Include: warzone\current.txt");
+        WarzoneMasterConfig.HasManagedBlock(fs.Files[master]).Should().BeTrue();
     }
 
     [Fact]

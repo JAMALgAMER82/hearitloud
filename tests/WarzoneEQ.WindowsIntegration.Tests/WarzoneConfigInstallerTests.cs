@@ -35,23 +35,49 @@ public class WarzoneConfigInstallerTests : IDisposable
     }
 
     [Fact]
-    public void Install_appends_include_to_existing_master_config()
+    public void Install_appends_conditional_block_to_existing_master_config()
     {
         var masterPath = Path.Combine(_configDir, "config.txt");
         File.WriteAllText(masterPath, "Preamp: 0 dB\n");
         NewInstaller().Install(new ProfileInput(AudioMode.Competitive));
-        File.ReadAllText(masterPath).Should().Contain(@"Include: warzone\current.txt");
+        var content = File.ReadAllText(masterPath);
+        content.Should().Contain(WarzoneMasterConfig.BlockStartMarker);
+        content.Should().Contain(WarzoneMasterConfig.BlockEndMarker);
+        content.Should().Contain("If(app:cod.exe");
+        content.Should().Contain("EndIf");
+        content.Should().Contain(@"Include: warzone\current.txt");
+        content.Should().StartWith("Preamp: 0 dB");
     }
 
     [Fact]
-    public void Install_does_not_duplicate_existing_include()
+    public void Install_migrates_legacy_bare_include_to_conditional_block()
     {
         var masterPath = Path.Combine(_configDir, "config.txt");
-        File.WriteAllText(masterPath, @"Include: warzone\current.txt" + Environment.NewLine);
+        File.WriteAllText(masterPath, "Preamp: 0 dB\n" + @"Include: warzone\current.txt" + "\n");
         NewInstaller().Install(new ProfileInput(AudioMode.Competitive));
+        var content = File.ReadAllText(masterPath);
+        content.Should().Contain(WarzoneMasterConfig.BlockStartMarker);
+        // The bare line is now inside the If(...) block — only one Include occurrence remains.
         var occurrences = System.Text.RegularExpressions.Regex.Matches(
-            File.ReadAllText(masterPath), @"Include: warzone\\current\.txt").Count;
+            content, @"Include: warzone\\current\.txt").Count;
         occurrences.Should().Be(1);
+        content.Should().NotMatch(@"^\s*Include: warzone\\current\.txt\s*$"); // not bare on its own line
+    }
+
+    [Fact]
+    public void Install_is_idempotent_with_managed_block_present()
+    {
+        var masterPath = Path.Combine(_configDir, "config.txt");
+        File.WriteAllText(masterPath, "Preamp: 0 dB\n");
+        NewInstaller().Install(new ProfileInput(AudioMode.Competitive));
+        var firstPass = File.ReadAllText(masterPath);
+
+        NewInstaller().Install(new ProfileInput(AudioMode.Competitive));
+        var secondPass = File.ReadAllText(masterPath);
+
+        secondPass.Should().Be(firstPass, because: "re-installing should not churn the master config");
+        System.Text.RegularExpressions.Regex.Matches(secondPass, WarzoneMasterConfig.BlockStartMarker).Count
+            .Should().Be(1);
     }
 
     [Fact]

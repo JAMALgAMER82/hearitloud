@@ -69,9 +69,23 @@ HearItLoud.exe --self-test
 
 `--auto` already downgrades automatically when VST plugins or HeSuVi aren't installed — `--detect` reports what was found. Use `--basic` to force a plugin-free config even when the optional components are present.
 
+### Game-only EQ — Discord and Spotify stay untouched
+
+Our master-config block uses Equalizer APO's process-conditional `If(app:...)` directive so the EQ chain only fires for Call of Duty executables. Discord, Spotify, YouTube, browsers — everything else — pass through with zero processing and zero added latency. No virtual audio device, no kernel driver, no signing certificate, no anti-cheat surface.
+
+```
+# >>> hear-it-loud-block-start
+If(app:cod.exe;app:ModernWarfare.exe;app:Warzone.exe;app:cod_modernwarfare.exe;app:BlackOps6.exe)
+Include: warzone\current.txt
+EndIf
+# <<< hear-it-loud-block-end
+```
+
+If you had an older Hear It Loud install (which applied the chain to every app on the endpoint), `--diagnose` flags it as a `WARN` and `--diagnose --fix` auto-upgrades the master config in place.
+
 ### Fixing a friend's PC
 
-`HearItLoud.exe --diagnose` runs eight checks: Equalizer APO installed, config dir writable, master `config.txt` references our chain, `warzone\current.txt` exists, VST plugins present, HeSuVi present, pending reboot, Windows Spatial Sound settings. `--diagnose --fix` auto-repairs the safe ones (rewires master config, etc.); anything that needs Windows audio control panel surgery prints the exact click path.
+`HearItLoud.exe --diagnose` runs eight checks: Equalizer APO installed, config dir writable, master `config.txt` has the conditional block, `warzone\current.txt` exists, VST plugins present, HeSuVi present, pending reboot, Windows Spatial Sound settings. `--diagnose --fix` auto-repairs the safe ones (rewires master config, migrates legacy installs); anything that needs Windows audio control panel surgery prints the exact click path.
 
 ## Architecture
 
@@ -101,7 +115,7 @@ Internal library namespaces remain `WarzoneEQ.*` (renaming would be massive chur
 dotnet test
 ```
 
-133 tests, all passing.
+143 tests, all passing.
 
 ## Anti-cheat compliance
 

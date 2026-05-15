@@ -6,7 +6,6 @@ namespace WarzoneEQ.WindowsIntegration;
 
 public sealed class WarzoneConfigInstaller
 {
-    private const string IncludeLine = @"Include: warzone\current.txt";
     private readonly IEqApoLocator _locator;
     private readonly IConfigFileWriter _writer;
 
@@ -30,7 +29,7 @@ public sealed class WarzoneConfigInstaller
         var masterPath = Path.Combine(_locator.ConfigDirectory, "config.txt");
         if (!File.Exists(masterPath)) return;
         var existing = File.ReadAllText(masterPath);
-        if (existing.Contains(IncludeLine, StringComparison.Ordinal)) return;
-        File.AppendAllText(masterPath, Environment.NewLine + IncludeLine + Environment.NewLine);
+        var merged = WarzoneMasterConfig.Merge(existing);
+        if (merged != existing) File.WriteAllText(masterPath, merged);
     }
 }

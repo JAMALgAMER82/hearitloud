@@ -2,13 +2,17 @@ using WarzoneEQ.WindowsIntegration.EqApo;
 
 namespace WarzoneEQ.WindowsIntegration.Diagnostics.Checks;
 
-// EQ APO's config.txt is the master entry point. If our `Include: warzone\current.txt`
-// line is missing, our chain isn't loaded and the user hears no effect — a very
-// common "I installed it but nothing changed" bug.
+// EQ APO's config.txt is the master entry point. Our chain is loaded via a
+// conditional block: `If(app:cod.exe;app:Warzone.exe;...) Include EndIf`.
+// That block routes the EQ only to Call of Duty processes, leaving Discord,
+// Spotify, browsers, etc. as identity passthrough.
+//
+// Three states this check distinguishes:
+//   - Managed block present       -> OK
+//   - Legacy bare Include present -> WARN + auto-fix (upgrade to conditional)
+//   - Neither present             -> FAIL + auto-fix (write fresh conditional)
 public sealed class MasterConfigIncludeCheck : IDiagnosticCheck
 {
-    private const string IncludeLine = @"Include: warzone\current.txt";
-
     private readonly IEqApoLocator _locator;
     private readonly IFileSystem _fs;
 
@@ -24,7 +28,7 @@ public sealed class MasterConfigIncludeCheck : IDiagnosticCheck
         {
             return DiagnosticResult.Warn(
                 "eqapo.master-include",
-                "config.txt includes warzone\\current.txt",
+                "config.txt loads Hear It Loud only for Warzone",
                 "Skipped — Equalizer APO is not installed.");
         }
 
@@ -33,25 +37,36 @@ public sealed class MasterConfigIncludeCheck : IDiagnosticCheck
         {
             return DiagnosticResult.Fail(
                 "eqapo.master-include",
-                "config.txt includes warzone\\current.txt",
+                "config.txt loads Hear It Loud only for Warzone",
                 $"Master file {masterPath} is missing. Equalizer APO is broken.",
                 manualFix: "Reinstall Equalizer APO.");
         }
 
         var content = _fs.ReadAllText(masterPath);
-        if (content.Contains(IncludeLine, StringComparison.Ordinal))
+
+        if (WarzoneMasterConfig.HasManagedBlock(content))
         {
             return DiagnosticResult.Ok(
                 "eqapo.master-include",
-                "config.txt includes warzone\\current.txt",
-                "Master config references our chain.");
+                "config.txt loads Hear It Loud only for Warzone",
+                "Conditional block is present — Warzone gets the EQ chain; Discord/Spotify/etc. pass through untouched.");
+        }
+
+        if (WarzoneMasterConfig.HasLegacyBareInclude(content))
+        {
+            return DiagnosticResult.Warn(
+                "eqapo.master-include",
+                "config.txt loads Hear It Loud only for Warzone",
+                "Found legacy unconditional Include — the chain is being applied to every app (including Discord). Upgrade available.",
+                autoFix: () => _fs.WriteAllText(masterPath, WarzoneMasterConfig.Merge(content)),
+                manualFix: $"Replace the bare 'Include: warzone\\current.txt' line in {masterPath} with the conditional block from WarzoneMasterConfig.BuildBlock().");
         }
 
         return DiagnosticResult.Fail(
             "eqapo.master-include",
-            "config.txt includes warzone\\current.txt",
-            "Master config.txt is missing the Include line — Hear It Loud's chain isn't loaded.",
-            autoFix: () => _fs.AppendAllText(masterPath, Environment.NewLine + IncludeLine + Environment.NewLine),
-            manualFix: $"Append this line to {masterPath}:\n  {IncludeLine}");
+            "config.txt loads Hear It Loud only for Warzone",
+            "Master config does not reference Hear It Loud's chain — the EQ is not loaded.",
+            autoFix: () => _fs.WriteAllText(masterPath, WarzoneMasterConfig.Merge(content)),
+            manualFix: $"Append the conditional block to {masterPath} (or re-run --auto).");
     }
 }
