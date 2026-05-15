@@ -5,6 +5,7 @@ using WarzoneEQ.DeviceDetection;
 using WarzoneEQ.DeviceDetection.Detection;
 using WarzoneEQ.DeviceDetection.Matching;
 using WarzoneEQ.WindowsIntegration;
+using WarzoneEQ.WindowsIntegration.Diagnostics;
 using WarzoneEQ.WindowsIntegration.EqApo;
 using WarzoneEQ.WindowsIntegration.Files;
 using WarzoneEQ.WindowsIntegration.LoudnessEq;
@@ -41,12 +42,17 @@ var detectOption = new Option<bool>("--detect", description: "Detect current hea
 var installOption = new Option<bool>("--install", description: "Write the generated config into the Equalizer APO config directory.");
 var autoOption = new Option<bool>("--auto", description: "One-shot: detect hardware, route to detected DAC's Game endpoint, install. Sensible defaults for everything.");
 var basicOption = new Option<bool>("--basic", description: "Omit Plugin: and HRIR Include lines so the chain works on vanilla Equalizer APO (no TDR Nova/ReaXcomp/LoudMax/Wider/HeSuVi required).");
+var footstepPriorityOption = new Option<bool>("--footstep-priority", description: "Use the FootstepHunter profile (max positional clarity: -10 dB FC duck, +5 dB rears, LFE killed, sharp 3 kHz transient shaper). Forces --mode FootstepHunter and Aggressive curve.");
+var diagnoseOption = new Option<bool>("--diagnose", description: "Run a battery of system checks (EQ APO install, master config wiring, optional VST plugins, pending reboot, ...). Reports a verdict for each.");
+var fixOption = new Option<bool>("--fix", description: "Used with --diagnose: apply safe auto-fixes (rewire master config, re-install missing chain). Manual-only fixes are still printed.");
+var selfTestOption = new Option<bool>("--self-test", description: "Generate every profile/curve/basic combination in-memory and verify the output is well-formed. Catches a bad build before any disk write.");
 
 var root = new RootCommand("Hear It Loud — by MasterMind George. Generate, detect, and install Equalizer APO configs for Call of Duty Warzone.")
 {
     modeOption, curveOption, intensityOption, headphoneOption, dacOption,
     linearPhaseOption, adaptiveLoudnessOption, widerOption, noCompressorOption,
     detectOption, installOption, autoOption, basicOption,
+    footstepPriorityOption, diagnoseOption, fixOption, selfTestOption,
 };
 
 root.SetHandler(context =>
@@ -64,6 +70,21 @@ root.SetHandler(context =>
     var install          = context.ParseResult.GetValueForOption(installOption);
     var auto             = context.ParseResult.GetValueForOption(autoOption);
     var basic            = context.ParseResult.GetValueForOption(basicOption);
+    var footstepPriority = context.ParseResult.GetValueForOption(footstepPriorityOption);
+    var diagnose         = context.ParseResult.GetValueForOption(diagnoseOption);
+    var doFix            = context.ParseResult.GetValueForOption(fixOption);
+    var selfTest         = context.ParseResult.GetValueForOption(selfTestOption);
+
+    if (selfTest) { RunSelfTest(); return; }
+    if (diagnose) { RunDiagnose(doFix); return; }
+
+    // --footstep-priority is a shorthand that pins mode + curve + intensity.
+    if (footstepPriority)
+    {
+        mode = AudioMode.FootstepHunter;
+        curve = FpsCurveName.Aggressive;
+        intensity = 1.0;
+    }
 
     // Determine optional-component availability so we can downgrade gracefully.
     bool vstAvailable = !basic && DetectVstPluginsAvailable();
@@ -134,6 +155,59 @@ static ProfileInput BuildProfile(
         EnableVstPlugins = enableVstPlugins,
         EnableHrirInclude = enableHrirInclude,
     };
+
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+static void RunDiagnose(bool applyFixes)
+{
+    Console.WriteLine("Hear It Loud — system diagnostics");
+    Console.WriteLine(new string('=', 50));
+    var engine = StandardDiagnostics.ForCurrentMachine();
+    var report = applyFixes ? engine.RunAndAutoFix() : engine.Run();
+
+    foreach (var r in report.Results)
+    {
+        var tag = r.Severity switch
+        {
+            DiagnosticSeverity.Ok      => "[ OK ]",
+            DiagnosticSeverity.Warning => "[WARN]",
+            DiagnosticSeverity.Error   => "[FAIL]",
+            _ => "[????]",
+        };
+        Console.WriteLine();
+        Console.WriteLine($"{tag} {r.Title}");
+        Console.WriteLine($"       {r.Detail}");
+        if (r.Severity != DiagnosticSeverity.Ok && r.ManualFix is { } mf)
+        {
+            foreach (var line in mf.Split('\n'))
+                Console.WriteLine($"       fix: {line.TrimEnd()}");
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine(new string('-', 50));
+    Console.WriteLine($"Summary: {report.OkCount} ok, {report.WarnCount} warn, {report.ErrorCount} fail.");
+    if (!applyFixes && report.Results.Any(r => r.CanAutoFix))
+        Console.WriteLine("Re-run with `--diagnose --fix` to apply safe auto-fixes.");
+
+    if (report.AnyFailures) Environment.Exit(1);
+}
+
+static void RunSelfTest()
+{
+    Console.WriteLine("Hear It Loud — config generator self-test");
+    Console.WriteLine(new string('=', 50));
+    var results = SelfTest.Run();
+    foreach (var r in results)
+    {
+        var tag = r.Passed ? "[PASS]" : "[FAIL]";
+        Console.WriteLine($"{tag} {r.Name}  ({r.Detail})");
+    }
+    var failed = results.Count(r => !r.Passed);
+    Console.WriteLine();
+    Console.WriteLine(new string('-', 50));
+    Console.WriteLine($"Self-test: {results.Count - failed}/{results.Count} passed.");
+    if (failed > 0) Environment.Exit(1);
+}
 
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 static bool DetectVstPluginsAvailable()

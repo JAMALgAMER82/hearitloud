@@ -53,11 +53,25 @@ HearItLoud.exe --install --mode Competitive
 # Best of all worlds (auto-detect + install with sensible defaults)
 HearItLoud.exe --auto
 
+# Max-priority footstep chain (Competitive cranked: -10 dB FC duck, +5 dB rears,
+# LFE killed, sharp 3 kHz transient shaper, Aggressive curve).
+HearItLoud.exe --auto --footstep-priority
+
 # Vanilla EQ APO only (no TDR Nova / LoudMax / HeSuVi required)
 HearItLoud.exe --auto --basic
+
+# Diagnose a friend's PC and apply safe auto-fixes
+HearItLoud.exe --diagnose --fix
+
+# Self-check the generator before installing (catches a bad build)
+HearItLoud.exe --self-test
 ```
 
 `--auto` already downgrades automatically when VST plugins or HeSuVi aren't installed — `--detect` reports what was found. Use `--basic` to force a plugin-free config even when the optional components are present.
+
+### Fixing a friend's PC
+
+`HearItLoud.exe --diagnose` runs eight checks: Equalizer APO installed, config dir writable, master `config.txt` references our chain, `warzone\current.txt` exists, VST plugins present, HeSuVi present, pending reboot, Windows Spatial Sound settings. `--diagnose --fix` auto-repairs the safe ones (rewires master config, etc.); anything that needs Windows audio control panel surgery prints the exact click path.
 
 ## Architecture
 
@@ -87,7 +101,7 @@ Internal library namespaces remain `WarzoneEQ.*` (renaming would be massive chur
 dotnet test
 ```
 
-105 tests, all passing.
+133 tests, all passing.
 
 ## Anti-cheat compliance
 

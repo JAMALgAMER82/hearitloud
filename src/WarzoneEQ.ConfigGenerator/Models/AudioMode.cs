@@ -5,4 +5,5 @@ public enum AudioMode
     Competitive,
     Cinematic,
     Bypass,
+    FootstepHunter,
 }

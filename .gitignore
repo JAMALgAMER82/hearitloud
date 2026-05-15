@@ -6,3 +6,6 @@ obj/
 TestResults/
 publish/
 installer/assets/
+
+# Rider/VS local-state caches
+*.lscache
