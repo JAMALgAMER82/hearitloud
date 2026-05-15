@@ -6,7 +6,11 @@ Ultimate compliant footstep audio app for Call of Duty Warzone. See [the design 
 
 ## One-click install (for your friends)
 
-Send them [publish/installer/HearItLoud-Setup.exe](publish/installer/HearItLoud-Setup.exe).
+Send them this link — it always points at the latest release:
+
+**[Download HearItLoud-Setup.exe](https://github.com/JAMALgAMER82/hearitloud/releases/latest/download/HearItLoud-Setup.exe)**
+
+(local build output: `publish/installer/HearItLoud-Setup.exe`)
 
 They double-click it. The installer:
 1. Downloads + silently installs **Equalizer APO** (free, open-source, the audio engine).
