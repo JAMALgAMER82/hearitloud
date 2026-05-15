@@ -21,7 +21,9 @@ public sealed class MainForm : Form
     private readonly AdvancedTab _advanced;
     private CancellationTokenSource? _cts;
 
-    public MainForm()
+    public MainForm() : this(initialPreset: null) { }
+
+    public MainForm(WorkflowOptions? initialPreset)
     {
         Text = "Hear It Loud — by MasterMind George";
         MinimumSize = new Size(820, 680);
@@ -104,7 +106,22 @@ public sealed class MainForm : Form
         Controls.Add(subtitle);
         Controls.Add(title);
         Controls.Add(footer);
+
+        // Restore last-applied Advanced controls, or honor an explicit preset
+        // passed in (e.g. from double-clicking a .warzeq file).
+        var startupPreset = initialPreset ?? Settings.TryLoad();
+        if (startupPreset is not null)
+        {
+            _advanced.LoadFrom(startupPreset);
+            if (initialPreset is not null)
+            {
+                tabs.SelectedTab = advTab;
+                Log("[preset] Loaded from .warzeq file. Click Apply (Install) to use it.");
+            }
+        }
     }
+
+    internal void OnAdvancedApplied(WorkflowOptions options) => Settings.Save(options);
 
     private Button[] BuildEasyTab(TabPage tab)
     {
@@ -275,6 +292,8 @@ internal sealed class AdvancedTab : UserControl
     private readonly Button _btnApply;
     private readonly Button _btnReset;
     private readonly Button _btnAutofillHardware;
+    private readonly Button _btnSavePreset;
+    private readonly Button _btnLoadPreset;
 
     public AdvancedTab(MainForm owner)
     {
@@ -333,8 +352,18 @@ internal sealed class AdvancedTab : UserControl
         _btnReset.Font   = new Font("Segoe UI", 10F, FontStyle.Bold);
 
         _btnPreview.Click += (_, _) => _owner.Run("Preview", w => Workflows.Print(w, BuildInputFromControls()));
-        _btnApply.Click   += (_, _) => _owner.Run("Apply (Install)", w => Workflows.Install(w, BuildInputFromControls()));
+        _btnApply.Click   += (_, _) =>
+        {
+            var opts = ReadOptionsFromControls();
+            _owner.OnAdvancedApplied(opts);
+            _owner.Run("Apply (Install)", w => Workflows.Install(w, Workflows.BuildInput(opts)));
+        };
         _btnReset.Click   += (_, _) => ResetToDefaults();
+
+        _btnSavePreset = MakeSmallButton("Save Preset…");
+        _btnLoadPreset = MakeSmallButton("Load Preset…");
+        _btnSavePreset.Click += (_, _) => SavePresetToFile();
+        _btnLoadPreset.Click += (_, _) => LoadPresetFromFile();
 
         layout.Controls.Add(MakeLabel("Mode:"),      0, 0);
         layout.Controls.Add(_mode,                   1, 0);
@@ -374,11 +403,80 @@ internal sealed class AdvancedTab : UserControl
         layout.Controls.Add(actionRow, 0, 5);
         layout.SetColumnSpan(actionRow, 4);
 
-        layout.Controls.Add(MakeLabel("Tip: Preview to see the generated EQ APO config; Apply installs it."), 0, 6);
-        layout.GetControlFromPosition(0, 6)!.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
-        layout.SetColumnSpan(layout.GetControlFromPosition(0, 6)!, 4);
+        var presetRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Height = 32 };
+        presetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        presetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        presetRow.Controls.Add(_btnSavePreset, 0, 0);
+        presetRow.Controls.Add(_btnLoadPreset, 1, 0);
+        layout.Controls.Add(presetRow, 0, 6);
+        layout.SetColumnSpan(presetRow, 4);
 
         Controls.Add(layout);
+    }
+
+    public void LoadFrom(WorkflowOptions opts)
+    {
+        if (InvokeRequired) { BeginInvoke(() => LoadFrom(opts)); return; }
+        _mode.SelectedItem = opts.Mode.ToString();
+        _curve.SelectedItem = opts.Curve.ToString();
+        _intensity.Value = Math.Clamp((int)Math.Round(opts.Intensity * 100), 0, 100);
+        _headphone.Text = opts.Headphone ?? "";
+        _dac.Text = opts.Dac ?? "";
+        _linearPhase.Checked = opts.LinearPhase;
+        _adaptiveLoudness.Checked = opts.AdaptiveLoudness;
+        _wider.Checked = opts.Wider;
+        _compressor.Checked = opts.FootstepCompressor;
+        _basic.Checked = opts.Basic;
+    }
+
+    private WorkflowOptions ReadOptionsFromControls() => new(
+        Mode: Enum.Parse<AudioMode>((string)_mode.SelectedItem!),
+        Curve: Enum.Parse<FpsCurveName>((string)_curve.SelectedItem!),
+        Intensity: _intensity.Value / 100.0,
+        Headphone: string.IsNullOrWhiteSpace(_headphone.Text) ? null : _headphone.Text.Trim(),
+        Dac: string.IsNullOrWhiteSpace(_dac.Text) ? null : _dac.Text.Trim(),
+        LinearPhase: _linearPhase.Checked,
+        AdaptiveLoudness: _adaptiveLoudness.Checked,
+        Wider: _wider.Checked,
+        FootstepCompressor: _compressor.Checked,
+        Basic: _basic.Checked);
+
+    private void SavePresetToFile()
+    {
+        using var dlg = new SaveFileDialog
+        {
+            Title = "Save Hear It Loud preset",
+            Filter = $"{Presets.FileExtensionDescription} (*{Presets.FileExtension})|*{Presets.FileExtension}",
+            DefaultExt = Presets.FileExtension.TrimStart('.'),
+            FileName = "my-warzone-preset" + Presets.FileExtension,
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            Presets.Save(dlg.FileName, ReadOptionsFromControls());
+            _owner.Log($"[preset] Saved to {dlg.FileName}.");
+            _owner.Log("Share this .warzeq file with a friend — they can double-click to load it.");
+        }
+        catch (Exception ex) { _owner.Log($"[error] Saving preset failed: {ex.Message}"); }
+    }
+
+    private void LoadPresetFromFile()
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = "Load Hear It Loud preset",
+            Filter = $"{Presets.FileExtensionDescription} (*{Presets.FileExtension})|*{Presets.FileExtension}",
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            var opts = Presets.Load(dlg.FileName);
+            LoadFrom(opts);
+            _owner.Log($"[preset] Loaded from {dlg.FileName}. Click Apply (Install) to use it.");
+        }
+        catch (Exception ex) { _owner.Log($"[error] Loading preset failed: {ex.Message}"); }
     }
 
     public void SetButtonsEnabled(bool enabled)
@@ -387,6 +485,8 @@ internal sealed class AdvancedTab : UserControl
         _btnApply.Enabled = enabled;
         _btnReset.Enabled = enabled;
         _btnAutofillHardware.Enabled = enabled;
+        _btnSavePreset.Enabled = enabled;
+        _btnLoadPreset.Enabled = enabled;
     }
 
     private void AutofillHardware()
@@ -427,21 +527,7 @@ internal sealed class AdvancedTab : UserControl
         _owner.Log("[reset] Advanced controls back to defaults.");
     }
 
-    private ProfileInput BuildInputFromControls()
-    {
-        var opts = new WorkflowOptions(
-            Mode: Enum.Parse<AudioMode>((string)_mode.SelectedItem!),
-            Curve: Enum.Parse<FpsCurveName>((string)_curve.SelectedItem!),
-            Intensity: _intensity.Value / 100.0,
-            Headphone: string.IsNullOrWhiteSpace(_headphone.Text) ? null : _headphone.Text.Trim(),
-            Dac: string.IsNullOrWhiteSpace(_dac.Text) ? null : _dac.Text.Trim(),
-            LinearPhase: _linearPhase.Checked,
-            AdaptiveLoudness: _adaptiveLoudness.Checked,
-            Wider: _wider.Checked,
-            FootstepCompressor: _compressor.Checked,
-            Basic: _basic.Checked);
-        return Workflows.BuildInput(opts);
-    }
+    private ProfileInput BuildInputFromControls() => Workflows.BuildInput(ReadOptionsFromControls());
 
     private static Label MakeLabel(string text) => new()
     {

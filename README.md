@@ -44,6 +44,9 @@ For tech-savvy friends who want to tune the chain by hand. Controls:
 - **Preview Config** — generates the EQ APO config text into the log so you can read it before committing
 - **Apply (Install)** — writes the config and reloads EQ APO
 - **Reset to Defaults** — back to the standard Competitive / Moderate / 100% chain
+- **Save Preset… / Load Preset…** — store your tuned chain as a `.warzeq` JSON file. Send the file to a friend; they double-click it and the app opens with your exact settings ready to Apply.
+
+The app also remembers the last-applied Advanced settings between launches — your toggles + sliders are restored on next startup.
 
 ### Heads-up about Windows SmartScreen
 

@@ -2,16 +2,36 @@ using System.CommandLine;
 using WarzoneEQ.Cli;
 using WarzoneEQ.ConfigGenerator.Models;
 
-// Dual-mode entry point: launching with no args opens the WinForms GUI for
-// non-technical users; any arg invokes the CLI for power users + the
-// installer's post-install scripts.
-if (args.Length == 0 && OperatingSystem.IsWindows())
+// Dual-mode entry point:
+//   - no args                  -> open WinForms GUI
+//   - single .warzeq file arg  -> open GUI with that preset preloaded
+//                                 (handles file-association double-click)
+//   - any other args           -> CLI mode
+if (OperatingSystem.IsWindows() && args.Length == 0)
+{
+    LaunchGui(initialPreset: null);
+    return 0;
+}
+if (OperatingSystem.IsWindows() && args.Length == 1 && Presets.LooksLikePresetFile(args[0]))
+{
+    try { LaunchGui(initialPreset: Presets.Load(args[0])); }
+    catch (Exception ex)
+    {
+        System.Windows.Forms.MessageBox.Show(
+            $"Could not load preset:\n\n{ex.Message}",
+            "Hear It Loud",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Error);
+    }
+    return 0;
+}
+
+static void LaunchGui(WorkflowOptions? initialPreset)
 {
     System.Windows.Forms.Application.SetHighDpiMode(System.Windows.Forms.HighDpiMode.SystemAware);
     System.Windows.Forms.Application.EnableVisualStyles();
     System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
-    System.Windows.Forms.Application.Run(new MainForm());
-    return 0;
+    System.Windows.Forms.Application.Run(new MainForm(initialPreset));
 }
 
 var modeOption       = new Option<AudioMode>("--mode", () => AudioMode.Competitive, "Audio mode: Competitive, Cinematic, Bypass, FootstepHunter.");
@@ -50,10 +70,7 @@ root.SetHandler(context =>
 
     if (p.GetValueForOption(guiOption) && OperatingSystem.IsWindows())
     {
-        System.Windows.Forms.Application.SetHighDpiMode(System.Windows.Forms.HighDpiMode.SystemAware);
-        System.Windows.Forms.Application.EnableVisualStyles();
-        System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
-        System.Windows.Forms.Application.Run(new MainForm());
+        LaunchGui(initialPreset: null);
         return;
     }
 

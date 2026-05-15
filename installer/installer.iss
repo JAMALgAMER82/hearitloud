@@ -71,6 +71,14 @@ Filename: "powershell.exe"; \
   Flags: runhidden waituntilterminated; \
   Tasks: runautotune
 
+[Registry]
+; Register the .warzeq preset file extension so double-clicking a preset
+; opens Hear It Loud with that preset loaded. Cleaned up on uninstall.
+Root: HKCR; Subkey: ".warzeq"; ValueType: string; ValueName: ""; ValueData: "HearItLoud.Preset"; Flags: uninsdeletevalue
+Root: HKCR; Subkey: "HearItLoud.Preset"; ValueType: string; ValueName: ""; ValueData: "Hear It Loud preset"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "HearItLoud.Preset\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
+Root: HKCR; Subkey: "HearItLoud.Preset\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+
 [UninstallRun]
 ; Remove the Hear It Loud block from EQ APO's master config so we don't leave
 ; a dangling Include line pointing at a deleted file. EQ APO itself stays —
