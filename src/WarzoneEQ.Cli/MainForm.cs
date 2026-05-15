@@ -2,80 +2,76 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.Versioning;
 using System.Windows.Forms;
+using WarzoneEQ.ConfigGenerator.Models;
 
 namespace WarzoneEQ.Cli;
 
 [SupportedOSPlatform("windows")]
 public sealed class MainForm : Form
 {
+    private static readonly Color BgDark      = Color.FromArgb(28, 28, 32);
+    private static readonly Color BgDarker    = Color.FromArgb(20, 20, 24);
+    private static readonly Color BgDarkest   = Color.FromArgb(18, 18, 22);
+    private static readonly Color FgText      = Color.FromArgb(230, 230, 230);
+    private static readonly Color FgMuted     = Color.FromArgb(170, 170, 170);
+    private static readonly Color AccentGold  = Color.FromArgb(240, 200, 80);
+
     private readonly TextBox _log;
-    private readonly Button _btnAuto;
-    private readonly Button _btnFootstep;
-    private readonly Button _btnDiagnose;
-    private readonly Button _btnDetect;
-    private readonly Button _btnSoundSettings;
-    private readonly Button _btnPlugins;
+    private readonly Button[] _easyButtons;
+    private readonly AdvancedTab _advanced;
     private CancellationTokenSource? _cts;
 
     public MainForm()
     {
         Text = "Hear It Loud — by MasterMind George";
-        MinimumSize = new Size(720, 560);
-        Size = new Size(820, 640);
+        MinimumSize = new Size(820, 680);
+        Size = new Size(900, 740);
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.FromArgb(28, 28, 32);
-        ForeColor = Color.FromArgb(230, 230, 230);
+        BackColor = BgDark;
+        ForeColor = FgText;
         Font = new Font("Segoe UI", 10F);
 
         var title = new Label
         {
             Text = "HEAR IT LOUD",
             Dock = DockStyle.Top,
-            Height = 56,
-            Font = new Font("Segoe UI", 22F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(240, 200, 80),
+            Height = 50,
+            Font = new Font("Segoe UI", 20F, FontStyle.Bold),
+            ForeColor = AccentGold,
             TextAlign = ContentAlignment.MiddleCenter,
-            BackColor = Color.FromArgb(20, 20, 24),
+            BackColor = BgDarker,
         };
-
         var subtitle = new Label
         {
-            Text = "Pick what you want — the app does the rest.",
+            Text = "by MasterMind George",
             Dock = DockStyle.Top,
-            Height = 28,
-            Font = new Font("Segoe UI", 10F, FontStyle.Italic),
-            ForeColor = Color.FromArgb(170, 170, 170),
+            Height = 22,
+            Font = new Font("Segoe UI", 9F, FontStyle.Italic),
+            ForeColor = FgMuted,
             TextAlign = ContentAlignment.MiddleCenter,
-            BackColor = Color.FromArgb(20, 20, 24),
+            BackColor = BgDarker,
         };
 
-        var buttonPanel = new TableLayoutPanel
+        var tabs = new TabControl
         {
             Dock = DockStyle.Top,
-            Height = 220,
-            ColumnCount = 2,
-            RowCount = 3,
-            Padding = new Padding(20, 12, 20, 8),
-            BackColor = Color.FromArgb(28, 28, 32),
+            Height = 360,
+            Appearance = TabAppearance.FlatButtons,
+            SizeMode = TabSizeMode.Fixed,
+            ItemSize = new Size(140, 30),
+            Padding = new Point(20, 6),
         };
-        buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        for (int i = 0; i < 3; i++)
-            buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 33.3F));
 
-        _btnAuto         = MakeButton("Auto Setup\n(recommended for first run)", Color.FromArgb(50, 130, 60));
-        _btnFootstep     = MakeButton("Footstep Priority\n(max competitive clarity)", Color.FromArgb(180, 110, 30));
-        _btnDiagnose     = MakeButton("Diagnose && Auto-Fix\n(if anything sounds wrong)", Color.FromArgb(60, 100, 160));
-        _btnDetect       = MakeButton("Detect My Hardware", Color.FromArgb(80, 80, 90));
-        _btnSoundSettings = MakeButton("Open Windows Sound Settings", Color.FromArgb(80, 80, 90));
-        _btnPlugins      = MakeButton("Get Optional Plugins\n(for the full-quality chain)", Color.FromArgb(80, 80, 90));
+        var easyTab = new TabPage("  Easy Mode  ") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
+        var advTab  = new TabPage("  Advanced  ") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
 
-        buttonPanel.Controls.Add(_btnAuto, 0, 0);
-        buttonPanel.Controls.Add(_btnFootstep, 1, 0);
-        buttonPanel.Controls.Add(_btnDiagnose, 0, 1);
-        buttonPanel.Controls.Add(_btnDetect, 1, 1);
-        buttonPanel.Controls.Add(_btnSoundSettings, 0, 2);
-        buttonPanel.Controls.Add(_btnPlugins, 1, 2);
+        var easyButtons = BuildEasyTab(easyTab);
+        _easyButtons = easyButtons;
+        _advanced = new AdvancedTab(this);
+        advTab.Controls.Add(_advanced);
+
+        tabs.TabPages.Add(easyTab);
+        tabs.TabPages.Add(advTab);
 
         _log = new TextBox
         {
@@ -83,7 +79,7 @@ public sealed class MainForm : Form
             ReadOnly = true,
             Dock = DockStyle.Fill,
             ScrollBars = ScrollBars.Vertical,
-            BackColor = Color.FromArgb(18, 18, 22),
+            BackColor = BgDarkest,
             ForeColor = Color.FromArgb(210, 210, 210),
             Font = new Font("Consolas", 9F),
             BorderStyle = BorderStyle.FixedSingle,
@@ -95,29 +91,60 @@ public sealed class MainForm : Form
 
         var footer = new Label
         {
-            Text = "Tip: 'Auto Setup' is the right answer 95% of the time. 'Footstep Priority' for ranked.",
+            Text = "Easy Mode for first-time setup. Advanced tab to tune the chain by hand.",
             Dock = DockStyle.Bottom,
-            Height = 32,
+            Height = 28,
             TextAlign = ContentAlignment.MiddleCenter,
-            ForeColor = Color.FromArgb(150, 150, 150),
-            BackColor = Color.FromArgb(20, 20, 24),
+            ForeColor = FgMuted,
+            BackColor = BgDarker,
         };
 
         Controls.Add(logPanel);
-        Controls.Add(buttonPanel);
+        Controls.Add(tabs);
         Controls.Add(subtitle);
         Controls.Add(title);
         Controls.Add(footer);
-
-        _btnAuto.Click          += (_, _) => RunInBackground("Auto Setup", w => Workflows.Auto(w, new WorkflowOptions()));
-        _btnFootstep.Click      += (_, _) => RunInBackground("Footstep Priority", w => Workflows.Auto(w, new WorkflowOptions(FootstepPriority: true)));
-        _btnDiagnose.Click      += (_, _) => RunInBackground("Diagnose & Fix", w => Workflows.Diagnose(w, applyFix: true));
-        _btnDetect.Click        += (_, _) => RunInBackground("Detect Hardware", w => Workflows.Detect(w, basic: false));
-        _btnSoundSettings.Click += (_, _) => OpenSoundSettings();
-        _btnPlugins.Click       += (_, _) => OpenPluginGuide();
     }
 
-    private static Button MakeButton(string text, Color accent)
+    private Button[] BuildEasyTab(TabPage tab)
+    {
+        var grid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 3,
+            BackColor = BgDark,
+        };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        for (int i = 0; i < 3; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.3F));
+
+        var btnAuto      = MakeBigButton("Auto Setup\n(recommended for first run)", Color.FromArgb(50, 130, 60));
+        var btnFootstep  = MakeBigButton("Footstep Priority\n(max competitive clarity)", Color.FromArgb(180, 110, 30));
+        var btnDiagnose  = MakeBigButton("Diagnose && Auto-Fix\n(if anything sounds wrong)", Color.FromArgb(60, 100, 160));
+        var btnDetect    = MakeBigButton("Detect My Hardware", Color.FromArgb(80, 80, 90));
+        var btnSettings  = MakeBigButton("Open Windows Sound Settings", Color.FromArgb(80, 80, 90));
+        var btnPlugins   = MakeBigButton("Get Optional Plugins\n(for the full-quality chain)", Color.FromArgb(80, 80, 90));
+
+        grid.Controls.Add(btnAuto, 0, 0);
+        grid.Controls.Add(btnFootstep, 1, 0);
+        grid.Controls.Add(btnDiagnose, 0, 1);
+        grid.Controls.Add(btnDetect, 1, 1);
+        grid.Controls.Add(btnSettings, 0, 2);
+        grid.Controls.Add(btnPlugins, 1, 2);
+        tab.Controls.Add(grid);
+
+        btnAuto.Click     += (_, _) => Run("Auto Setup", w => Workflows.Auto(w, new WorkflowOptions()));
+        btnFootstep.Click += (_, _) => Run("Footstep Priority", w => Workflows.Auto(w, new WorkflowOptions(FootstepPriority: true)));
+        btnDiagnose.Click += (_, _) => Run("Diagnose & Fix", w => Workflows.Diagnose(w, applyFix: true));
+        btnDetect.Click   += (_, _) => Run("Detect Hardware", w => Workflows.Detect(w, basic: false));
+        btnSettings.Click += (_, _) => OpenSoundSettings();
+        btnPlugins.Click  += (_, _) => OpenPluginGuide();
+
+        return new[] { btnAuto, btnFootstep, btnDiagnose, btnDetect, btnSettings, btnPlugins };
+    }
+
+    internal static Button MakeBigButton(string text, Color accent)
     {
         var b = new Button
         {
@@ -137,11 +164,13 @@ public sealed class MainForm : Form
         return b;
     }
 
-    private void RunInBackground(string actionName, Func<Action<string>, int> work)
+    // Run a long-running operation off the UI thread. Disables all action
+    // buttons (easy + advanced) while it runs.
+    internal void Run(string actionName, Func<Action<string>, int> work)
     {
         if (_cts is not null) { Log("(busy — wait for the current action to finish)"); return; }
         _cts = new CancellationTokenSource();
-        SetButtonsEnabled(false);
+        SetAllButtonsEnabled(false);
         ClearLog();
         Log($"=== {actionName} ===");
         Log("");
@@ -149,36 +178,31 @@ public sealed class MainForm : Form
         Task.Run(() =>
         {
             int exitCode;
-            try
-            {
-                exitCode = work(Log);
-            }
+            try { exitCode = work(Log); }
             catch (Exception ex)
             {
                 Log("");
                 Log($"[error] {ex.GetType().Name}: {ex.Message}");
                 exitCode = 1;
             }
-
             BeginInvoke(() =>
             {
                 Log("");
                 Log(exitCode == 0 ? $"[done] {actionName} completed." : $"[exit {exitCode}] {actionName} finished with issues.");
                 _cts?.Dispose();
                 _cts = null;
-                SetButtonsEnabled(true);
+                SetAllButtonsEnabled(true);
             });
         });
     }
 
-    private void SetButtonsEnabled(bool enabled)
+    private void SetAllButtonsEnabled(bool enabled)
     {
-        foreach (var b in new[] { _btnAuto, _btnFootstep, _btnDiagnose, _btnDetect, _btnSoundSettings, _btnPlugins })
-            b.Enabled = enabled;
+        foreach (var b in _easyButtons) b.Enabled = enabled;
+        _advanced.SetButtonsEnabled(enabled);
     }
 
-    // Marshals log writes back to the UI thread. Worker threads call this freely.
-    private void Log(string line)
+    internal void Log(string line)
     {
         if (InvokeRequired) { BeginInvoke(() => Log(line)); return; }
         _log.AppendText(line + Environment.NewLine);
@@ -186,18 +210,12 @@ public sealed class MainForm : Form
         _log.ScrollToCaret();
     }
 
-    private void ClearLog() { if (InvokeRequired) { BeginInvoke(ClearLog); return; } _log.Clear(); }
+    internal void ClearLog() { if (InvokeRequired) { BeginInvoke(ClearLog); return; } _log.Clear(); }
 
     private static void OpenSoundSettings()
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo("ms-settings:sound") { UseShellExecute = true });
-        }
-        catch
-        {
-            Process.Start(new ProcessStartInfo("control.exe", "mmsys.cpl") { UseShellExecute = true });
-        }
+        try { Process.Start(new ProcessStartInfo("ms-settings:sound") { UseShellExecute = true }); }
+        catch { Process.Start(new ProcessStartInfo("control.exe", "mmsys.cpl") { UseShellExecute = true }); }
     }
 
     private void OpenPluginGuide()
@@ -222,22 +240,264 @@ public sealed class MainForm : Form
         Log("HeSuVi has its own installer — point it at the EqualizerAPO config dir.");
         Log("");
         Log("Then click \"Diagnose & Auto-Fix\" to verify they're picked up.");
-
-        TryOpen("https://www.tokyodawn.net/tdr-nova/");
-    }
-
-    private static void TryOpen(string url)
-    {
-        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        try { Process.Start(new ProcessStartInfo("https://www.tokyodawn.net/tdr-nova/") { UseShellExecute = true }); }
         catch { /* user can copy-paste from the log */ }
     }
 
     private static string WelcomeMessage() =>
         "Welcome to Hear It Loud — by MasterMind George." + Environment.NewLine +
         Environment.NewLine +
-        "Click \"Auto Setup\" to detect your headphones + DAC and install a tuned" + Environment.NewLine +
-        "EQ chain for Call of Duty Warzone. The EQ only applies to the game — Discord," + Environment.NewLine +
-        "Spotify, browsers, and everything else pass through untouched." + Environment.NewLine +
+        "EASY MODE: click \"Auto Setup\" if this is your first time." + Environment.NewLine +
+        "The EQ only applies to Call of Duty — Discord, Spotify, browsers, etc." + Environment.NewLine +
+        "all pass through with no processing." + Environment.NewLine +
         Environment.NewLine +
-        "If you've never used this app before, just click \"Auto Setup\".";
+        "ADVANCED tab: pick mode + curve + intensity by hand, toggle linear phase /" + Environment.NewLine +
+        "adaptive loudness / Wider, preview the generated config, then apply.";
+}
+
+// Second tab — manual EQ controls for tech-savvy users.
+[SupportedOSPlatform("windows")]
+internal sealed class AdvancedTab : UserControl
+{
+    private readonly MainForm _owner;
+    private readonly ComboBox _mode;
+    private readonly ComboBox _curve;
+    private readonly TrackBar _intensity;
+    private readonly Label _intensityLabel;
+    private readonly TextBox _headphone;
+    private readonly TextBox _dac;
+    private readonly CheckBox _linearPhase;
+    private readonly CheckBox _adaptiveLoudness;
+    private readonly CheckBox _wider;
+    private readonly CheckBox _compressor;
+    private readonly CheckBox _basic;
+    private readonly Button _btnPreview;
+    private readonly Button _btnApply;
+    private readonly Button _btnReset;
+    private readonly Button _btnAutofillHardware;
+
+    public AdvancedTab(MainForm owner)
+    {
+        _owner = owner;
+        Dock = DockStyle.Fill;
+        BackColor = Color.FromArgb(28, 28, 32);
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 4,
+            RowCount = 7,
+            ColumnStyles =
+            {
+                new ColumnStyle(SizeType.Absolute, 110),
+                new ColumnStyle(SizeType.Percent, 50),
+                new ColumnStyle(SizeType.Absolute, 110),
+                new ColumnStyle(SizeType.Percent, 50),
+            },
+            Padding = new Padding(8),
+        };
+        for (int i = 0; i < 7; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+
+        _mode = MakeCombo(Enum.GetNames<AudioMode>(), nameof(AudioMode.Competitive));
+        _curve = MakeCombo(Enum.GetNames<FpsCurveName>(), nameof(FpsCurveName.Moderate));
+
+        _intensity = new TrackBar
+        {
+            Dock = DockStyle.Fill,
+            Minimum = 0,
+            Maximum = 100,
+            Value = 100,
+            TickFrequency = 25,
+            BackColor = Color.FromArgb(28, 28, 32),
+        };
+        _intensityLabel = MakeLabel("Intensity: 100%");
+        _intensity.ValueChanged += (_, _) => _intensityLabel.Text = $"Intensity: {_intensity.Value}%";
+
+        _headphone = MakeTextBox(placeholder: "(auto-detect)");
+        _dac       = MakeTextBox(placeholder: "(auto-detect)");
+
+        _btnAutofillHardware = MakeSmallButton("Detect");
+        _btnAutofillHardware.Click += (_, _) => AutofillHardware();
+
+        _linearPhase      = MakeCheck("Linear phase EQ");
+        _adaptiveLoudness = MakeCheck("Adaptive loudness");
+        _wider            = MakeCheck("Polyverse Wider (sides+rear)");
+        _compressor       = MakeCheck("Footstep upward compressor", checkedState: true);
+        _basic            = MakeCheck("Basic mode (skip VST plugins)");
+
+        _btnPreview = MainForm.MakeBigButton("Preview Config", Color.FromArgb(60, 100, 160));
+        _btnApply   = MainForm.MakeBigButton("Apply (Install)", Color.FromArgb(50, 130, 60));
+        _btnReset   = MainForm.MakeBigButton("Reset to Defaults", Color.FromArgb(80, 80, 90));
+        _btnPreview.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+        _btnApply.Font   = new Font("Segoe UI", 10F, FontStyle.Bold);
+        _btnReset.Font   = new Font("Segoe UI", 10F, FontStyle.Bold);
+
+        _btnPreview.Click += (_, _) => _owner.Run("Preview", w => Workflows.Print(w, BuildInputFromControls()));
+        _btnApply.Click   += (_, _) => _owner.Run("Apply (Install)", w => Workflows.Install(w, BuildInputFromControls()));
+        _btnReset.Click   += (_, _) => ResetToDefaults();
+
+        layout.Controls.Add(MakeLabel("Mode:"),      0, 0);
+        layout.Controls.Add(_mode,                   1, 0);
+        layout.Controls.Add(MakeLabel("Curve:"),     2, 0);
+        layout.Controls.Add(_curve,                  3, 0);
+
+        layout.Controls.Add(_intensityLabel,         0, 1);
+        layout.SetColumnSpan(_intensityLabel, 1);
+        layout.Controls.Add(_intensity,              1, 1);
+        layout.SetColumnSpan(_intensity, 3);
+
+        layout.Controls.Add(MakeLabel("Headphone:"), 0, 2);
+        layout.Controls.Add(_headphone,              1, 2);
+        layout.Controls.Add(MakeLabel("DAC:"),       2, 2);
+        var dacRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+        dacRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        dacRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 78));
+        dacRow.Controls.Add(_dac, 0, 0);
+        dacRow.Controls.Add(_btnAutofillHardware, 1, 0);
+        layout.Controls.Add(dacRow, 3, 2);
+
+        var checks1 = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(28, 28, 32) };
+        checks1.Controls.AddRange(new Control[] { _linearPhase, _adaptiveLoudness, _wider });
+        layout.Controls.Add(checks1, 0, 3);
+        layout.SetColumnSpan(checks1, 4);
+
+        var checks2 = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(28, 28, 32) };
+        checks2.Controls.AddRange(new Control[] { _compressor, _basic });
+        layout.Controls.Add(checks2, 0, 4);
+        layout.SetColumnSpan(checks2, 4);
+
+        var actionRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Height = 50 };
+        for (int i = 0; i < 3; i++) actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3F));
+        actionRow.Controls.Add(_btnPreview, 0, 0);
+        actionRow.Controls.Add(_btnApply, 1, 0);
+        actionRow.Controls.Add(_btnReset, 2, 0);
+        layout.Controls.Add(actionRow, 0, 5);
+        layout.SetColumnSpan(actionRow, 4);
+
+        layout.Controls.Add(MakeLabel("Tip: Preview to see the generated EQ APO config; Apply installs it."), 0, 6);
+        layout.GetControlFromPosition(0, 6)!.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
+        layout.SetColumnSpan(layout.GetControlFromPosition(0, 6)!, 4);
+
+        Controls.Add(layout);
+    }
+
+    public void SetButtonsEnabled(bool enabled)
+    {
+        _btnPreview.Enabled = enabled;
+        _btnApply.Enabled = enabled;
+        _btnReset.Enabled = enabled;
+        _btnAutofillHardware.Enabled = enabled;
+    }
+
+    private void AutofillHardware()
+    {
+        _owner.Run("Detect Hardware (for Advanced fields)", w =>
+        {
+            try
+            {
+                var snap = Workflows.DetectHardware();
+                Workflows.PrintDetection(w, snap, Workflows.DetectVstAvailable(), Workflows.DetectHesuviInstalled());
+                _owner.BeginInvoke(() =>
+                {
+                    if (snap.PrimaryHeadphone is { } hp) _headphone.Text = hp.AutoeqSlug;
+                    if (snap.MultiEndpointDac is { } d) _dac.Text = d.GameEndpoint;
+                });
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                w($"[error] {ex.Message}");
+                return 1;
+            }
+        });
+    }
+
+    private void ResetToDefaults()
+    {
+        _mode.SelectedItem = nameof(AudioMode.Competitive);
+        _curve.SelectedItem = nameof(FpsCurveName.Moderate);
+        _intensity.Value = 100;
+        _headphone.Text = "";
+        _dac.Text = "";
+        _linearPhase.Checked = false;
+        _adaptiveLoudness.Checked = false;
+        _wider.Checked = false;
+        _compressor.Checked = true;
+        _basic.Checked = false;
+        _owner.Log("[reset] Advanced controls back to defaults.");
+    }
+
+    private ProfileInput BuildInputFromControls()
+    {
+        var opts = new WorkflowOptions(
+            Mode: Enum.Parse<AudioMode>((string)_mode.SelectedItem!),
+            Curve: Enum.Parse<FpsCurveName>((string)_curve.SelectedItem!),
+            Intensity: _intensity.Value / 100.0,
+            Headphone: string.IsNullOrWhiteSpace(_headphone.Text) ? null : _headphone.Text.Trim(),
+            Dac: string.IsNullOrWhiteSpace(_dac.Text) ? null : _dac.Text.Trim(),
+            LinearPhase: _linearPhase.Checked,
+            AdaptiveLoudness: _adaptiveLoudness.Checked,
+            Wider: _wider.Checked,
+            FootstepCompressor: _compressor.Checked,
+            Basic: _basic.Checked);
+        return Workflows.BuildInput(opts);
+    }
+
+    private static Label MakeLabel(string text) => new()
+    {
+        Text = text,
+        Dock = DockStyle.Fill,
+        TextAlign = ContentAlignment.MiddleLeft,
+        ForeColor = Color.FromArgb(230, 230, 230),
+        BackColor = Color.FromArgb(28, 28, 32),
+    };
+
+    private static ComboBox MakeCombo(string[] items, string selected)
+    {
+        var c = new ComboBox
+        {
+            Dock = DockStyle.Fill,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            BackColor = Color.FromArgb(40, 40, 46),
+            ForeColor = Color.FromArgb(230, 230, 230),
+            FlatStyle = FlatStyle.Flat,
+        };
+        c.Items.AddRange(items);
+        c.SelectedItem = selected;
+        return c;
+    }
+
+    private static TextBox MakeTextBox(string placeholder) => new()
+    {
+        Dock = DockStyle.Fill,
+        BackColor = Color.FromArgb(40, 40, 46),
+        ForeColor = Color.FromArgb(230, 230, 230),
+        BorderStyle = BorderStyle.FixedSingle,
+        PlaceholderText = placeholder,
+    };
+
+    private static CheckBox MakeCheck(string text, bool checkedState = false) => new()
+    {
+        Text = text,
+        AutoSize = true,
+        Margin = new Padding(6, 4, 16, 4),
+        ForeColor = Color.FromArgb(230, 230, 230),
+        BackColor = Color.FromArgb(28, 28, 32),
+        Checked = checkedState,
+    };
+
+    private static Button MakeSmallButton(string text)
+    {
+        var b = new Button
+        {
+            Text = text,
+            Dock = DockStyle.Fill,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(80, 80, 90),
+            ForeColor = Color.White,
+            Margin = new Padding(4, 0, 0, 0),
+        };
+        b.FlatAppearance.BorderSize = 0;
+        return b;
+    }
 }

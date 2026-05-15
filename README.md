@@ -19,7 +19,9 @@ After reboot, they double-click the desktop icon and click **Auto Setup**. The a
 
 > **Settings → Audio → Audio Mix = Headphones Bass Cut, Surround = 7.1, Music = 0, Enhanced Headphone Mode = OFF**
 
-The app window has six buttons:
+The app has two tabs:
+
+### Easy Mode (default — six big buttons)
 
 | Button | What it does |
 |---|---|
@@ -29,6 +31,19 @@ The app window has six buttons:
 | **Detect My Hardware** | Shows what headphones + DAC the app found |
 | **Open Windows Sound Settings** | Jump straight to the speaker properties they need |
 | **Get Optional Plugins** | Links to TDR Nova / LoudMax / HeSuVi downloads for the full chain |
+
+### Advanced tab (manual EQ controls)
+
+For tech-savvy friends who want to tune the chain by hand. Controls:
+
+- **Mode** — Competitive / Cinematic / Bypass / FootstepHunter
+- **Curve** — Minimalist / Moderate / Aggressive
+- **Intensity** slider — scales the curve filters from 0% (flat) to 100% (full curve)
+- **Headphone / DAC** override fields, with a one-click *Detect* button that fills them in from the current hardware
+- Checkboxes for **Linear phase EQ**, **Adaptive loudness**, **Polyverse Wider**, **Footstep upward compressor**, **Basic mode** (skip VST plugins)
+- **Preview Config** — generates the EQ APO config text into the log so you can read it before committing
+- **Apply (Install)** — writes the config and reloads EQ APO
+- **Reset to Defaults** — back to the standard Competitive / Moderate / 100% chain
 
 ### Heads-up about Windows SmartScreen
 
