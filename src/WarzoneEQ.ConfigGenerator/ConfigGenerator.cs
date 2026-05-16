@@ -11,6 +11,7 @@ public static class ConfigGenerator
         AudioMode.Cinematic   => new CinematicProfile().Generate(input),
         AudioMode.Bypass      => new BypassProfile().Generate(input),
         AudioMode.FootstepHunter => new FootstepHunterProfile().Generate(input),
+        AudioMode.UserCustom     => new UserCustomProfile().Generate(input),
         _ => throw new ArgumentOutOfRangeException(nameof(input.Mode)),
     };
 }

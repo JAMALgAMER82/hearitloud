@@ -84,14 +84,18 @@ public sealed class MainForm : Form
 
         var easyTab = new TabPage("⚡  Easy Mode") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
         var advTab  = new TabPage("⚙  Advanced")  { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
+        var eqTab   = new TabPage("🎚  EQ Editor") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
 
         var easyButtons = BuildEasyTab(easyTab);
         _easyButtons = easyButtons;
         _advanced = new AdvancedTab(this);
         advTab.Controls.Add(_advanced);
+        var eqEditor = new EqEditorTab(this);
+        eqTab.Controls.Add(eqEditor);
 
         tabs.TabPages.Add(easyTab);
         tabs.TabPages.Add(advTab);
+        tabs.TabPages.Add(eqTab);
 
         _log = new TextBox
         {
@@ -925,6 +929,134 @@ internal sealed class AdvancedTab : UserControl
         };
         b.FlatAppearance.BorderSize = 0;
         return b;
+    }
+}
+
+// Third tab — interactive visual EQ editor. Hosts the EqGraphControl plus
+// Apply / Clear / Snap-to-AutoEQ buttons. The user's filter list is sent
+// through Workflows.Install as an AudioMode.UserCustom profile.
+[SupportedOSPlatform("windows")]
+internal sealed class EqEditorTab : UserControl
+{
+    private readonly MainForm _owner;
+    private readonly EqGraphControl _graph;
+    private readonly Label _filterCountLabel;
+    private readonly TextBox _headphoneBox;
+
+    public EqEditorTab(MainForm owner)
+    {
+        _owner = owner;
+        Dock = DockStyle.Fill;
+        BackColor = Color.FromArgb(28, 28, 32);
+
+        _graph = new EqGraphControl { Dock = DockStyle.Fill };
+
+        _filterCountLabel = new Label
+        {
+            Text = "0 filters",
+            ForeColor = Color.FromArgb(170, 170, 180),
+            BackColor = Color.FromArgb(28, 28, 32),
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font("Segoe UI", 9F, FontStyle.Italic),
+        };
+        _headphoneBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(40, 40, 46),
+            ForeColor = Color.FromArgb(230, 230, 230),
+            BorderStyle = BorderStyle.FixedSingle,
+            PlaceholderText = "Headphone slug for Snap (e.g. HD600)",
+        };
+
+        // Wire after the label exists so nullable analysis is satisfied.
+        var label = _filterCountLabel;
+        _graph.FiltersChanged += () =>
+        {
+            var c = _graph.Filters.Count;
+            label.Text = $"{c} filter{(c == 1 ? "" : "s")}";
+        };
+
+        var btnApply = MainForm.MakeBigButton("Apply (Install)", Color.FromArgb(46, 138, 64));
+        var btnClear = MainForm.MakeBigButton("Clear", Color.FromArgb(72, 76, 90));
+        var btnSnap  = MainForm.MakeBigButton("Snap to AutoEQ", Color.FromArgb(60, 108, 170));
+        btnApply.Font = btnClear.Font = btnSnap.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+
+        btnApply.Click += (_, _) => _owner.Run("Apply (UserCustom)", w =>
+            Workflows.Install(w, new ProfileInput(AudioMode.UserCustom)
+            {
+                UserFilters = _graph.Filters.ToList(),
+            }));
+        btnClear.Click += (_, _) => _graph.Clear();
+        btnSnap.Click  += (_, _) => SnapToAutoEq();
+
+        var actionRow = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 50, ColumnCount = 5 };
+        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
+        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+        actionRow.Controls.Add(_filterCountLabel, 0, 0);
+        actionRow.Controls.Add(_headphoneBox, 1, 0);
+        actionRow.Controls.Add(btnSnap, 2, 0);
+        actionRow.Controls.Add(btnClear, 3, 0);
+        actionRow.Controls.Add(btnApply, 4, 0);
+
+        Controls.Add(_graph);
+        Controls.Add(actionRow);
+    }
+
+    private void SnapToAutoEq()
+    {
+        var slug = _headphoneBox.Text.Trim();
+        if (string.IsNullOrEmpty(slug)) { _owner.Log("[snap] enter a headphone slug first (e.g. HD600, K712 Pro, DT 1990 Pro)."); return; }
+        _owner.Run("Snap to AutoEQ", w =>
+        {
+            var fetcher = new WarzoneEQ.WindowsIntegration.AutoEq.AutoEqFetcher();
+            var task = fetcher.FetchAsync(slug, w);
+            task.GetAwaiter().GetResult();
+            var path = task.Result;
+            if (path is null) return 1;
+            var filters = ParseAutoEqFile(path).ToList();
+            _owner.BeginInvoke(() => _graph.SetFilters(filters));
+            w($"[snap] loaded {filters.Count} filters from {slug}.");
+            return 0;
+        });
+    }
+
+    // AutoEQ ParametricEQ.txt format (lines):
+    //   Preamp: -6.5 dB
+    //   Filter 1: ON PK Fc 32 Hz Gain 4.0 dB Q 1.41
+    //   Filter 2: ON PK Fc 64 Hz Gain -2.0 dB Q 1.41
+    //   ...
+    private static IEnumerable<WarzoneEQ.ConfigGenerator.Filters.Filter> ParseAutoEqFile(string path)
+    {
+        foreach (var raw in File.ReadAllLines(path))
+        {
+            var line = raw.Trim();
+            if (!line.StartsWith("Filter", StringComparison.OrdinalIgnoreCase)) continue;
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            // Expect: Filter N: ON PK Fc FFFF Hz Gain GG.G dB Q QQ
+            string? type = null;
+            double? fc = null, gain = null, q = null;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] == "PK" || parts[i] == "LP" || parts[i] == "HP" || parts[i] == "LS" || parts[i] == "HS") type = parts[i];
+                if (parts[i] == "Fc" && i + 1 < parts.Length && double.TryParse(parts[i + 1], System.Globalization.CultureInfo.InvariantCulture, out var f)) fc = f;
+                if (parts[i] == "Gain" && i + 1 < parts.Length && double.TryParse(parts[i + 1], System.Globalization.CultureInfo.InvariantCulture, out var g)) gain = g;
+                if (parts[i] == "Q" && i + 1 < parts.Length && double.TryParse(parts[i + 1], System.Globalization.CultureInfo.InvariantCulture, out var qq)) q = qq;
+            }
+            if (type is null || fc is null) continue;
+            yield return type switch
+            {
+                "PK" => WarzoneEQ.ConfigGenerator.Filters.Filter.Peaking(fc.Value, gain ?? 0, q ?? 1.0),
+                "HP" => WarzoneEQ.ConfigGenerator.Filters.Filter.HighPass(fc.Value),
+                "LP" => WarzoneEQ.ConfigGenerator.Filters.Filter.LowPass(fc.Value),
+                "LS" => WarzoneEQ.ConfigGenerator.Filters.Filter.LowShelf(fc.Value, gain ?? 0),
+                "HS" => WarzoneEQ.ConfigGenerator.Filters.Filter.HighShelf(fc.Value, gain ?? 0),
+                _ => WarzoneEQ.ConfigGenerator.Filters.Filter.Peaking(fc.Value, gain ?? 0, q ?? 1.0),
+            };
+        }
     }
 }
 

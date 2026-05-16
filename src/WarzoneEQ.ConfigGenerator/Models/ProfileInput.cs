@@ -40,4 +40,11 @@ public sealed record ProfileInput(AudioMode Mode)
     public bool EnableHrirInclude { get; init; } = true;
 
     public string HrirIncludePath { get; init; } = @"warzone\hrir\hesuvi-active.wav";
+
+    /// <summary>
+    /// Filters from the visual EQ editor. Consumed by UserCustomProfile.
+    /// Empty for all other modes.
+    /// </summary>
+    public IReadOnlyList<WarzoneEQ.ConfigGenerator.Filters.Filter> UserFilters { get; init; }
+        = Array.Empty<WarzoneEQ.ConfigGenerator.Filters.Filter>();
 }

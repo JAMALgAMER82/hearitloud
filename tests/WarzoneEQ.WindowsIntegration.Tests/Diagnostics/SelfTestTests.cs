@@ -9,9 +9,9 @@ public class SelfTestTests
     [Fact]
     public void Run_returns_a_result_per_mode_curve_basic_combination()
     {
-        // 4 modes * 3 curves * 2 basic toggles = 24
+        // 5 modes * 3 curves * 2 basic toggles = 30
         var results = SelfTest.Run();
-        results.Should().HaveCount(24);
+        results.Should().HaveCount(30);
     }
 
     [Fact]

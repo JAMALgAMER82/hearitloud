@@ -6,4 +6,5 @@ public enum AudioMode
     Cinematic,
     Bypass,
     FootstepHunter,
+    UserCustom,
 }
