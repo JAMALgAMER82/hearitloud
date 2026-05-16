@@ -46,8 +46,13 @@ public sealed class MainForm : Form
     {
         StartupTrace.Step("MainForm ctor: enter");
         Text = "Hear It Loud — by MasterMind George";
-        MinimumSize = new Size(820, 680);
-        Size = new Size(900, 740);
+        // v1.10.6: bumped form height from 740→880 + tab content area from
+        // 360→500 so the 4-row Easy Mode grid gives each card enough vertical
+        // space to render its action button. Previously cards were ~82 px tall
+        // → button squished to 0 px after padding + margins. Now cards are
+        // ~127 px tall → buttons are ~50 px tall and obviously clickable.
+        MinimumSize = new Size(820, 820);
+        Size = new Size(900, 880);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = BgDark;
         ForeColor = FgText;
@@ -81,7 +86,7 @@ public sealed class MainForm : Form
         var tabs = new TabControl
         {
             Dock = DockStyle.Top,
-            Height = 360,
+            Height = 500,
             SizeMode = TabSizeMode.Fixed,
             ItemSize = new Size(160, 34),
         };
@@ -284,6 +289,11 @@ public sealed class MainForm : Form
     private void OnForegroundChanged(string? processName)
     {
         if (!_autoSwitchEnabled) return;
+        // v1.10.6: ignore HearItLoud.exe itself. Otherwise focusing the app
+        // (e.g. to tune sliders) flips the chain to Slot B (Cinematic) and
+        // the user is tuning the wrong chain while they think they're hearing
+        // FootstepHunter. Self-exclusion fixes that UX trap.
+        if (string.Equals(processName, "HearItLoud.exe", StringComparison.OrdinalIgnoreCase)) return;
         if (InvokeRequired) { BeginInvoke(() => OnForegroundChanged(processName)); return; }
         try
         {
@@ -336,7 +346,7 @@ public sealed class MainForm : Form
             if (info is null)
             {
                 _pendingUpdate = null;
-                _updateStatusLabel.Text = "Up to date.";
+                _updateStatusLabel.Text = "✓  Up to date";
                 _updateStatusLabel.ForeColor = FgMuted;
                 _btnCheckUpdate.Text = "Check for Updates";
                 _btnCheckUpdate.BackColor = Theme.BtnInfo;
@@ -459,7 +469,7 @@ public sealed class MainForm : Form
         };
         var btn = MakeBigButton(buttonText, accent);
         btn.Dock = DockStyle.Fill;
-        btn.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+        btn.Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold); // v1.10.6: slightly bigger CTA
         card.Body.Controls.Add(btn);
         btn.Click += (_, _) =>
         {
@@ -824,6 +834,11 @@ internal sealed class AdvancedTab : UserControl
         layout.SetColumnSpan(pluginCard, 2);
 
         Controls.Add(layout);
+
+        // v1.10.6: enable the Plugin Control debounce now that initial
+        // checkbox CheckedChanged events from construction have fired.
+        // Subsequent user-driven changes will properly trigger auto-apply.
+        EndConstruction();
     }
 
     // ----- Card 1: PROFILE (Mode + Curve dropdowns + Intensity slider) -----
@@ -912,6 +927,12 @@ internal sealed class AdvancedTab : UserControl
     // other profiles ignore PluginOverrides today, so the card prints a
     // hint into the log if you click Apply while a non-FH mode is selected.
     private System.Windows.Forms.Timer? _debounceTimer;
+    // v1.10.6: gates the debounce timer during form construction. The four
+    // enable-checkboxes initialize with Checked=true which fires CheckedChanged
+    // → RestartDebounce → 350ms later Apply runs. Without this flag, every
+    // launch was silently re-installing the chain (visible as `[done] Apply
+    // (plugin overrides) completed.` in the log on every startup).
+    private bool _suppressDebounce = true;
     private CheckBox? _enFcDuck, _enRearShapers, _enFootstepComp, _enLimiter;
     private PurpleSlider? _slFcThresh, _slFcRatio, _slShaper3k, _slShaper5k, _slShaper65k, _slCompThresh, _slLimCeil;
     private Label? _lblFcThresh, _lblFcRatio, _lblShaper3k, _lblShaper5k, _lblShaper65k, _lblCompThresh, _lblLimCeil;
@@ -1047,9 +1068,15 @@ internal sealed class AdvancedTab : UserControl
         grid.Controls.Add(slider, col + 1, row);
     }
 
+    // Called by every slider/checkbox in the Plugin Control card. Returns
+    // immediately if construction is still in progress so initial property
+    // sets don't trigger a chain re-install.
+    internal void EndConstruction() => _suppressDebounce = false;
+
     private void RestartDebounce()
     {
         if (_debounceTimer is null) return;
+        if (_suppressDebounce) return; // construction in progress — ignore initial CheckedChanged storm
         _debounceTimer.Stop();
         _debounceTimer.Start();
     }
