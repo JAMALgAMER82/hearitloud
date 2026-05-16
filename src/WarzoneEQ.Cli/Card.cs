@@ -50,28 +50,14 @@ public sealed class Card : Panel
     {
         base.OnResize(eventargs);
         _body.Padding = new Padding(16, string.IsNullOrEmpty(Title) ? 14 : 50, 16, 14);
-        UpdateRoundedRegion();
         Invalidate();
     }
 
-    protected override void OnHandleCreated(EventArgs e)
-    {
-        base.OnHandleCreated(e);
-        UpdateRoundedRegion();
-    }
-
-    // v1.10.1: Region must only be set AFTER the control's Win32 handle
-    // exists and BEFORE the dimensions go to 0×0. Without these guards,
-    // initial layout-pass resizes fire Win32Exception "Failed to set Win32
-    // parent window of the Control" on some Windows versions (caught by
-    // the v1.10.0 crash handler — this is the actual fix).
-    private void UpdateRoundedRegion()
-    {
-        if (!IsHandleCreated) return;
-        if (Width < 2 || Height < 2) return;
-        try { Region = MakeRoundedRegion(Width, Height, CornerRadius); }
-        catch { /* swallow — Region is cosmetic; control still works without it */ }
-    }
+    // v1.10.3: Region clipping REMOVED. Even with handle/dimension guards
+    // (v1.10.1) and solid BackColor (v1.10.2), the user's laptop kept
+    // failing SetParent. Rounded corners aren't worth a crash — the cards
+    // now have square corners, which is purely cosmetic. The OnPaint
+    // border and header still render normally.
 
     protected override void OnPaint(PaintEventArgs e)
     {

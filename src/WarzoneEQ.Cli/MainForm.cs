@@ -74,18 +74,16 @@ public sealed class MainForm : Form
             BackColor = BgDarker,
         };
 
-        var tabs = new UnderlinedTabControl
+        // v1.10.3: switched from UnderlinedTabControl (owner-drawn) to the
+        // stock TabControl. Owner-drawn tabs have a long history of SetParent
+        // failures across Windows versions. Loses the custom purple-themed
+        // tab strip in exchange for guaranteed compatibility.
+        var tabs = new TabControl
         {
             Dock = DockStyle.Top,
             Height = 360,
-            Appearance = TabAppearance.FlatButtons,
             SizeMode = TabSizeMode.Fixed,
             ItemSize = new Size(160, 34),
-            Padding = new Point(20, 8),
-            Underline = AccentGold,
-            TabBg = BgDarker,
-            ActiveBg = BgDark,
-            TabFg = FgText,
         };
 
         StartupTrace.Step("creating TabPages");
