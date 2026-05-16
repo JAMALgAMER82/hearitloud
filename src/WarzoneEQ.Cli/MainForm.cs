@@ -15,12 +15,16 @@ namespace WarzoneEQ.Cli;
 [SupportedOSPlatform("windows")]
 public sealed class MainForm : Form
 {
-    private static readonly Color BgDark      = Color.FromArgb(28, 28, 32);
-    private static readonly Color BgDarker    = Color.FromArgb(20, 20, 24);
-    private static readonly Color BgDarkest   = Color.FromArgb(18, 18, 22);
-    private static readonly Color FgText      = Color.FromArgb(230, 230, 230);
-    private static readonly Color FgMuted     = Color.FromArgb(170, 170, 170);
-    private static readonly Color AccentGold  = Color.FromArgb(240, 200, 80);
+    // Re-export Theme constants under the old names so existing field references
+    // continue to compile. v1.5.0 switched the palette from slate-with-gold-accent
+    // to deep-purple-with-lavender-accent; the field aliases preserve all the
+    // existing layout code while shifting the colors.
+    private static readonly Color BgDark      = Theme.BgRoot;
+    private static readonly Color BgDarker    = Theme.BgChrome;
+    private static readonly Color BgDarkest   = Theme.BgPanel;
+    private static readonly Color FgText      = Theme.FgBody;
+    private static readonly Color FgMuted     = Theme.FgMuted;
+    private static readonly Color AccentGold  = Theme.Accent;
 
     private readonly TextBox _log;
     private readonly Button[] _easyButtons;
@@ -104,7 +108,7 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill,
             ScrollBars = ScrollBars.Vertical,
             BackColor = BgDarkest,
-            ForeColor = Color.FromArgb(210, 210, 210),
+            ForeColor = Theme.FgBody,
             Font = new Font("Consolas", 9F),
             BorderStyle = BorderStyle.FixedSingle,
             WordWrap = true,
@@ -150,7 +154,7 @@ public sealed class MainForm : Form
             Text = "Check for Updates",
             Dock = DockStyle.Fill,
             FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(70, 90, 110),
+            BackColor = Theme.BtnInfo,
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 9F),
             UseVisualStyleBackColor = false,
@@ -298,7 +302,7 @@ public sealed class MainForm : Form
                 _updateStatusLabel.Text = "Up to date.";
                 _updateStatusLabel.ForeColor = FgMuted;
                 _btnCheckUpdate.Text = "Check for Updates";
-                _btnCheckUpdate.BackColor = Color.FromArgb(70, 90, 110);
+                _btnCheckUpdate.BackColor = Theme.BtnInfo;
             }
             else
             {
@@ -375,13 +379,13 @@ public sealed class MainForm : Form
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
 
-        var btnAuto      = MakeBigButton("⚡  Auto Setup\n(recommended for first run)", Color.FromArgb(46, 138, 64));
-        var btnFootstep  = MakeBigButton("👣  Footstep Priority\n(max competitive clarity)", Color.FromArgb(196, 116, 28));
-        var btnDiagnose  = MakeBigButton("🔧  Diagnose && Auto-Fix\n(if anything sounds wrong)", Color.FromArgb(60, 108, 170));
-        var btnDetect    = MakeBigButton("🎧  Detect My Hardware", Color.FromArgb(72, 76, 90));
-        var btnSettings  = MakeBigButton("🔊  Open Windows Sound Settings", Color.FromArgb(72, 76, 90));
-        var btnPlugins   = MakeBigButton("🧩  Get Optional Plugins\n(for the full-quality chain)", Color.FromArgb(72, 76, 90));
-        var btnCheatSheet = MakeBigButton("📋  Show Audio Cheat Sheet\n(in-game + Windows settings to use)", Color.FromArgb(124, 76, 156));
+        var btnAuto      = MakeBigButton("⚡  Auto Setup\n(recommended for first run)", Theme.BtnSafe);
+        var btnFootstep  = MakeBigButton("👣  Footstep Priority\n(max competitive clarity)", Theme.BtnAggressive);
+        var btnDiagnose  = MakeBigButton("🔧  Diagnose && Auto-Fix\n(if anything sounds wrong)", Theme.BtnInfo);
+        var btnDetect    = MakeBigButton("🎧  Detect My Hardware", Theme.BtnNeutral);
+        var btnSettings  = MakeBigButton("🔊  Open Windows Sound Settings", Theme.BtnNeutral);
+        var btnPlugins   = MakeBigButton("🧩  Get Optional Plugins\n(for the full-quality chain)", Theme.BtnNeutral);
+        var btnCheatSheet = MakeBigButton("📋  Show Audio Cheat Sheet\n(in-game + Windows settings to use)", Theme.BtnCheat);
 
         grid.Controls.Add(btnAuto, 0, 0);
         grid.Controls.Add(btnFootstep, 1, 0);
@@ -551,7 +555,7 @@ issues automatically and prints the click path for the rest.";
         };
         var btnA = MakeBigButton("A: Install All Three", Color.FromArgb(50, 130, 60));
         var btnB = MakeBigButton("B: Just HeSuVi", Color.FromArgb(60, 100, 160));
-        var btnC = MakeBigButton("C: Open Download Pages", Color.FromArgb(80, 80, 90));
+        var btnC = MakeBigButton("C: Open Download Pages", Theme.BtnNeutral);
         btnA.Height = btnB.Height = btnC.Height = 44;
         btnA.Dock = btnB.Dock = btnC.Dock = DockStyle.Top;
         dlg.Controls.Add(btnC);
@@ -623,7 +627,7 @@ internal sealed class AdvancedTab : UserControl
     private readonly MainForm _owner;
     private readonly ComboBox _mode;
     private readonly ComboBox _curve;
-    private readonly TrackBar _intensity;
+    private readonly PurpleSlider _intensity;
     private readonly Label _intensityLabel;
     private readonly TextBox _headphone;
     private readonly TextBox _dac;
@@ -643,7 +647,7 @@ internal sealed class AdvancedTab : UserControl
     {
         _owner = owner;
         Dock = DockStyle.Fill;
-        BackColor = Color.FromArgb(28, 28, 32);
+        BackColor = Theme.BgRoot;
 
         var layout = new TableLayoutPanel
         {
@@ -664,14 +668,12 @@ internal sealed class AdvancedTab : UserControl
         _mode = MakeCombo(Enum.GetNames<AudioMode>(), nameof(AudioMode.Competitive));
         _curve = MakeCombo(Enum.GetNames<FpsCurveName>(), nameof(FpsCurveName.Moderate));
 
-        _intensity = new TrackBar
+        _intensity = new PurpleSlider
         {
             Dock = DockStyle.Fill,
             Minimum = 0,
             Maximum = 100,
             Value = 100,
-            TickFrequency = 25,
-            BackColor = Color.FromArgb(28, 28, 32),
         };
         _intensityLabel = MakeLabel("Intensity: 100%");
         _intensity.ValueChanged += (_, _) => _intensityLabel.Text = $"Intensity: {_intensity.Value}%";
@@ -690,7 +692,7 @@ internal sealed class AdvancedTab : UserControl
 
         _btnPreview = MainForm.MakeBigButton("Preview Config", Color.FromArgb(60, 100, 160));
         _btnApply   = MainForm.MakeBigButton("Apply (Install)", Color.FromArgb(50, 130, 60));
-        _btnReset   = MainForm.MakeBigButton("Reset to Defaults", Color.FromArgb(80, 80, 90));
+        _btnReset   = MainForm.MakeBigButton("Reset to Defaults", Theme.BtnNeutral);
         _btnPreview.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
         _btnApply.Font   = new Font("Segoe UI", 10F, FontStyle.Bold);
         _btnReset.Font   = new Font("Segoe UI", 10F, FontStyle.Bold);
@@ -729,12 +731,12 @@ internal sealed class AdvancedTab : UserControl
         dacRow.Controls.Add(_btnAutofillHardware, 1, 0);
         layout.Controls.Add(dacRow, 3, 2);
 
-        var checks1 = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(28, 28, 32) };
+        var checks1 = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Theme.BgRoot };
         checks1.Controls.AddRange(new Control[] { _linearPhase, _adaptiveLoudness, _wider });
         layout.Controls.Add(checks1, 0, 3);
         layout.SetColumnSpan(checks1, 4);
 
-        var checks2 = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(28, 28, 32) };
+        var checks2 = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Theme.BgRoot };
         checks2.Controls.AddRange(new Control[] { _compressor, _basic });
         layout.Controls.Add(checks2, 0, 4);
         layout.SetColumnSpan(checks2, 4);
@@ -878,8 +880,8 @@ internal sealed class AdvancedTab : UserControl
         Text = text,
         Dock = DockStyle.Fill,
         TextAlign = ContentAlignment.MiddleLeft,
-        ForeColor = Color.FromArgb(230, 230, 230),
-        BackColor = Color.FromArgb(28, 28, 32),
+        ForeColor = Theme.FgBody,
+        BackColor = Theme.BgRoot,
     };
 
     private static ComboBox MakeCombo(string[] items, string selected)
@@ -888,8 +890,8 @@ internal sealed class AdvancedTab : UserControl
         {
             Dock = DockStyle.Fill,
             DropDownStyle = ComboBoxStyle.DropDownList,
-            BackColor = Color.FromArgb(40, 40, 46),
-            ForeColor = Color.FromArgb(230, 230, 230),
+            BackColor = Theme.BgPanel,
+            ForeColor = Theme.FgBody,
             FlatStyle = FlatStyle.Flat,
         };
         c.Items.AddRange(items);
@@ -900,8 +902,8 @@ internal sealed class AdvancedTab : UserControl
     private static TextBox MakeTextBox(string placeholder) => new()
     {
         Dock = DockStyle.Fill,
-        BackColor = Color.FromArgb(40, 40, 46),
-        ForeColor = Color.FromArgb(230, 230, 230),
+        BackColor = Theme.BgPanel,
+        ForeColor = Theme.FgBody,
         BorderStyle = BorderStyle.FixedSingle,
         PlaceholderText = placeholder,
     };
@@ -911,8 +913,8 @@ internal sealed class AdvancedTab : UserControl
         Text = text,
         AutoSize = true,
         Margin = new Padding(6, 4, 16, 4),
-        ForeColor = Color.FromArgb(230, 230, 230),
-        BackColor = Color.FromArgb(28, 28, 32),
+        ForeColor = Theme.FgBody,
+        BackColor = Theme.BgRoot,
         Checked = checkedState,
     };
 
@@ -923,7 +925,7 @@ internal sealed class AdvancedTab : UserControl
             Text = text,
             Dock = DockStyle.Fill,
             FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(80, 80, 90),
+            BackColor = Theme.BtnNeutral,
             ForeColor = Color.White,
             Margin = new Padding(4, 0, 0, 0),
         };
@@ -947,15 +949,15 @@ internal sealed class EqEditorTab : UserControl
     {
         _owner = owner;
         Dock = DockStyle.Fill;
-        BackColor = Color.FromArgb(28, 28, 32);
+        BackColor = Theme.BgRoot;
 
         _graph = new EqGraphControl { Dock = DockStyle.Fill };
 
         _filterCountLabel = new Label
         {
             Text = "0 filters",
-            ForeColor = Color.FromArgb(170, 170, 180),
-            BackColor = Color.FromArgb(28, 28, 32),
+            ForeColor = Theme.FgMuted,
+            BackColor = Theme.BgRoot,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
             Font = new Font("Segoe UI", 9F, FontStyle.Italic),
@@ -963,8 +965,8 @@ internal sealed class EqEditorTab : UserControl
         _headphoneBox = new TextBox
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(40, 40, 46),
-            ForeColor = Color.FromArgb(230, 230, 230),
+            BackColor = Theme.BgPanel,
+            ForeColor = Theme.FgBody,
             BorderStyle = BorderStyle.FixedSingle,
             PlaceholderText = "Headphone slug for Snap (e.g. HD600)",
         };
@@ -1068,9 +1070,9 @@ internal sealed class EqEditorTab : UserControl
 internal sealed class UnderlinedTabControl : TabControl
 {
     public Color Underline { get; set; } = Color.Gold;
-    public Color TabBg     { get; set; } = Color.FromArgb(20, 20, 24);
-    public Color ActiveBg  { get; set; } = Color.FromArgb(28, 28, 32);
-    public Color TabFg     { get; set; } = Color.FromArgb(230, 230, 230);
+    public Color TabBg     { get; set; } = Theme.BgChrome;
+    public Color ActiveBg  { get; set; } = Theme.BgRoot;
+    public Color TabFg     { get; set; } = Theme.FgBody;
     public int UnderlineHeight { get; set; } = 3;
 
     public UnderlinedTabControl()
