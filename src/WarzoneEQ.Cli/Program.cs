@@ -44,6 +44,14 @@ static void LaunchGui(WorkflowOptions? initialPreset)
     System.Windows.Forms.Application.EnableVisualStyles();
     System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
 
+    // v1.10.1: WinForms only routes UI-thread exceptions through
+    // Application.ThreadException if the unhandled-exception mode is
+    // explicitly set to CatchException. Without this, the default .NET
+    // "Continue / Quit" dialog appears instead of our MessageBox + crash
+    // log. Must be called BEFORE Application.Run.
+    System.Windows.Forms.Application.SetUnhandledExceptionMode(
+        System.Windows.Forms.UnhandledExceptionMode.CatchException);
+
     // v1.10: catch every unhandled exception during form construction OR
     // runtime, write a full stack trace to %APPDATA%\HearItLoud\crash.log,
     // and pop up a MessageBox so the user can see (and report) the error
