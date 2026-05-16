@@ -28,13 +28,17 @@ function New-IconBitmap {
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
 
-    # Palette: warm radiation yellow, deep almost-black for wedges, near-white
-    # center, deep black ear stroke, gold piercing stud.
-    $yellow = [System.Drawing.Color]::FromArgb(255, 250, 196, 36)
-    $wedge  = [System.Drawing.Color]::FromArgb(255, 18, 18, 22)
-    $center = [System.Drawing.Color]::FromArgb(255, 246, 246, 248)
-    $stroke = [System.Drawing.Color]::FromArgb(255, 18, 18, 22)
-    $stud   = [System.Drawing.Color]::FromArgb(255, 232, 168, 32)
+    # Palette (matches src/WarzoneEQ.Cli/Theme.cs as of v1.5.1):
+    #   disc   = Theme.Accent       (lavender base — the "radiation yellow" slot)
+    #   wedge  = Theme.BgRoot       (deep indigo — the high-contrast trefoil)
+    #   center = Theme.FgPrimary    (near-white with slight purple tint)
+    #   stroke = Theme.BgRoot       (same deep indigo as wedges)
+    #   stud   = Theme.AccentLite   (brighter lavender — pops against the white center)
+    $yellow = [System.Drawing.Color]::FromArgb(255, 167, 139, 250)   # accent lavender
+    $wedge  = [System.Drawing.Color]::FromArgb(255, 20, 13, 36)      # deep indigo
+    $center = [System.Drawing.Color]::FromArgb(255, 238, 232, 255)   # near-white w/ purple tint
+    $stroke = [System.Drawing.Color]::FromArgb(255, 20, 13, 36)      # deep indigo
+    $stud   = [System.Drawing.Color]::FromArgb(255, 196, 181, 253)   # bright lavender
 
     # Yellow disc with a thin dark rim so the icon reads at 16px on dark taskbars.
     $rim = [Math]::Max(1, [int]($Size * 0.025))
