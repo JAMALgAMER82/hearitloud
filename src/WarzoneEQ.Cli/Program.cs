@@ -66,8 +66,11 @@ static void LaunchGui(WorkflowOptions? initialPreset)
     // so they don't lose the report (useful when they didn't see the popup).
     ShowPreviousCrashLogIfAny();
 
+    StartupTrace.Reset();
+    StartupTrace.Step("LaunchGui: before Application.Run");
     try { System.Windows.Forms.Application.Run(new MainForm(initialPreset)); }
-    catch (Exception ex) { HandleGuiCrash(ex); }
+    catch (Exception ex) { StartupTrace.Step($"Application.Run threw: {ex.GetType().Name}: {ex.Message}"); HandleGuiCrash(ex); }
+    StartupTrace.Step("LaunchGui: Application.Run returned cleanly");
 }
 
 static string CrashLogPath() => Path.Combine(

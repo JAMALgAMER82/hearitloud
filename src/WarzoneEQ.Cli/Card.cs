@@ -28,13 +28,19 @@ public sealed class Card : Panel
     public Card()
     {
         DoubleBuffered = true;
-        BackColor = Color.Transparent;
+        // v1.10.2: was Color.Transparent — on certain Windows + DWM combos
+        // the transparency compositing path triggered a SetParent Win32
+        // failure during child-control construction ("Failed to set Win32
+        // parent window of the Control"). Solid CardFill is visually
+        // identical (the form's BgRoot shows outside the rounded region
+        // anyway) and routes around the bug.
+        BackColor = Theme.CardFill;
         Padding = new Padding(0);
 
         _body = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.Transparent,
+            BackColor = Theme.CardFill,
             Padding = new Padding(16, 50, 16, 14),
         };
         Controls.Add(_body);

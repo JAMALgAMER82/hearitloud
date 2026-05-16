@@ -29,7 +29,7 @@ public sealed class MainForm : Form
 
     private readonly TextBox _log;
     private readonly Button[] _easyButtons;
-    private readonly AdvancedTab _advanced;
+    private readonly AdvancedTab? _advanced; // nullable: may fail to construct on some Windows versions; rest of the form still works
     private readonly Label _updateStatusLabel;
     private readonly Button _btnCheckUpdate;
     private CancellationTokenSource? _cts;
@@ -44,6 +44,7 @@ public sealed class MainForm : Form
 
     public MainForm(WorkflowOptions? initialPreset)
     {
+        StartupTrace.Step("MainForm ctor: enter");
         Text = "Hear It Loud — by MasterMind George";
         MinimumSize = new Size(820, 680);
         Size = new Size(900, 740);
@@ -87,20 +88,43 @@ public sealed class MainForm : Form
             TabFg = FgText,
         };
 
+        StartupTrace.Step("creating TabPages");
         var easyTab = new TabPage("⚡  Easy Mode") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
         var advTab  = new TabPage("⚙  Advanced")  { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
         var eqTab   = new TabPage("🎚  EQ Editor") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
 
-        var easyButtons = BuildEasyTab(easyTab);
+        StartupTrace.Step("building Easy Mode tab");
+        Button[] easyButtons;
+        try { easyButtons = BuildEasyTab(easyTab); }
+        catch (Exception ex)
+        {
+            StartupTrace.Step($"Easy Mode failed: {ex.GetType().Name}: {ex.Message}");
+            easyButtons = Array.Empty<Button>();
+            easyTab.Controls.Add(MakeFallbackLabel($"Easy Mode failed to load:\n{ex.Message}"));
+        }
         _easyButtons = easyButtons;
-        _advanced = new AdvancedTab(this);
-        advTab.Controls.Add(_advanced);
-        var eqEditor = new EqEditorTab(this);
-        eqTab.Controls.Add(eqEditor);
+
+        StartupTrace.Step("building Advanced tab");
+        try { _advanced = new AdvancedTab(this); advTab.Controls.Add(_advanced); }
+        catch (Exception ex)
+        {
+            StartupTrace.Step($"Advanced tab failed: {ex.GetType().Name}: {ex.Message}");
+            _advanced = null!;
+            advTab.Controls.Add(MakeFallbackLabel($"Advanced tab failed to load:\n{ex.Message}\n\nThe app still works — use Easy Mode."));
+        }
+
+        StartupTrace.Step("building EQ Editor tab");
+        try { var eqEditor = new EqEditorTab(this); eqTab.Controls.Add(eqEditor); }
+        catch (Exception ex)
+        {
+            StartupTrace.Step($"EQ Editor failed: {ex.GetType().Name}: {ex.Message}");
+            eqTab.Controls.Add(MakeFallbackLabel($"EQ Editor failed to load:\n{ex.Message}"));
+        }
 
         tabs.TabPages.Add(easyTab);
         tabs.TabPages.Add(advTab);
         tabs.TabPages.Add(eqTab);
+        StartupTrace.Step("tabs added to TabControl");
 
         _log = new TextBox
         {
@@ -186,7 +210,7 @@ public sealed class MainForm : Form
         var startupPreset = initialPreset ?? Settings.TryLoad();
         if (startupPreset is not null)
         {
-            _advanced.LoadFrom(startupPreset);
+            _advanced?.LoadFrom(startupPreset);
             if (initialPreset is not null)
             {
                 tabs.SelectedTab = advTab;
@@ -517,6 +541,18 @@ If a setting in this list looks wrong on your friend's PC, click
 ""Diagnose & Auto-Fix"" — it catches several of the Windows-side
 issues automatically and prints the click path for the rest.";
 
+    // Used when an Advanced/EQ-Editor tab fails to construct so the user
+    // sees WHY instead of a blank tab.
+    internal static Label MakeFallbackLabel(string text) => new()
+    {
+        Text = text,
+        Dock = DockStyle.Fill,
+        TextAlign = ContentAlignment.MiddleCenter,
+        ForeColor = Theme.FgMuted,
+        BackColor = Theme.BgRoot,
+        Font = new Font("Segoe UI", 10F, FontStyle.Italic),
+    };
+
     internal static Button MakeBigButton(string text, Color accent)
     {
         var b = new Button
@@ -572,7 +608,7 @@ issues automatically and prints the click path for the rest.";
     private void SetAllButtonsEnabled(bool enabled)
     {
         foreach (var b in _easyButtons) b.Enabled = enabled;
-        _advanced.SetButtonsEnabled(enabled);
+        _advanced?.SetButtonsEnabled(enabled);
     }
 
     internal void Log(string line)
