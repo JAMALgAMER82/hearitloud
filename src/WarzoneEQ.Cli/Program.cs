@@ -43,7 +43,74 @@ static void LaunchGui(WorkflowOptions? initialPreset)
     System.Windows.Forms.Application.SetHighDpiMode(System.Windows.Forms.HighDpiMode.SystemAware);
     System.Windows.Forms.Application.EnableVisualStyles();
     System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
-    System.Windows.Forms.Application.Run(new MainForm(initialPreset));
+
+    // v1.10: catch every unhandled exception during form construction OR
+    // runtime, write a full stack trace to %APPDATA%\HearItLoud\crash.log,
+    // and pop up a MessageBox so the user can see (and report) the error
+    // instead of the app dying silently. "Fully automatic" debugging path.
+    System.Windows.Forms.Application.ThreadException += (_, e) => HandleGuiCrash(e.Exception);
+    AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+    {
+        if (e.ExceptionObject is Exception ex) HandleGuiCrash(ex);
+    };
+
+    // If the previous run crashed, show the user the crash log on startup
+    // so they don't lose the report (useful when they didn't see the popup).
+    ShowPreviousCrashLogIfAny();
+
+    try { System.Windows.Forms.Application.Run(new MainForm(initialPreset)); }
+    catch (Exception ex) { HandleGuiCrash(ex); }
+}
+
+static string CrashLogPath() => Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+    "HearItLoud", "crash.log");
+
+static void HandleGuiCrash(Exception ex)
+{
+    try
+    {
+        var path = CrashLogPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var body =
+            "=== Hear It Loud crashed at " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ===" + Environment.NewLine +
+            "Version: " + (typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "?") + Environment.NewLine +
+            "OS:      " + Environment.OSVersion + Environment.NewLine +
+            Environment.NewLine + ex + Environment.NewLine;
+        File.WriteAllText(path, body);
+
+        System.Windows.Forms.MessageBox.Show(
+            "Hear It Loud crashed:" + Environment.NewLine + Environment.NewLine +
+            ex.GetType().Name + ": " + ex.Message + Environment.NewLine + Environment.NewLine +
+            "Full crash log saved to:" + Environment.NewLine + path + Environment.NewLine + Environment.NewLine +
+            "Please open an issue at https://github.com/JAMALgAMER82/hearitloud/issues with this file attached.",
+            "Hear It Loud — Crash",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Error);
+    }
+    catch { /* swallow — if even the crash handler crashes, all we can do is exit */ }
+    Environment.Exit(1);
+}
+
+static void ShowPreviousCrashLogIfAny()
+{
+    try
+    {
+        var path = CrashLogPath();
+        if (!File.Exists(path)) return;
+        var content = File.ReadAllText(path);
+        // Move the log aside so we don't show it on every subsequent launch.
+        var archived = path + "." + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        File.Move(path, archived);
+        System.Windows.Forms.MessageBox.Show(
+            "The previous run of Hear It Loud crashed. Here's the report:" + Environment.NewLine + Environment.NewLine +
+            (content.Length > 1200 ? content.Substring(0, 1200) + "..." : content) + Environment.NewLine + Environment.NewLine +
+            "Archived to: " + archived,
+            "Hear It Loud — Previous crash",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Warning);
+    }
+    catch { /* swallow */ }
 }
 
 var modeOption       = new Option<AudioMode>("--mode", () => AudioMode.Competitive, "Audio mode: Competitive, Cinematic, Bypass, FootstepHunter.");

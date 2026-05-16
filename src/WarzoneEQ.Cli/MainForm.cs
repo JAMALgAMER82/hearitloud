@@ -195,29 +195,43 @@ public sealed class MainForm : Form
         }
 
         // Register Ctrl+Shift+F8 as a global hotkey to toggle the A/B slot.
-        // Silent fallback if registration fails (another app may own the combo).
-        _toggleHotkey = new GlobalHotkey(GlobalHotkey.Mod.Ctrl | GlobalHotkey.Mod.Shift, Keys.F8, ToggleAbSlot);
-        if (!_toggleHotkey.IsRegistered)
-            Log("[hotkey] Ctrl+Shift+F8 already taken by another app — A/B toggle only via in-app button.");
+        // v1.10: each optional subsystem (hotkey / foreground watcher / tray
+        // icon) gets its own try/catch so one failed subsystem can't kill
+        // the whole form. The user gets a working app + a log line about
+        // what didn't initialize, instead of a silent crash.
+        try
+        {
+            _toggleHotkey = new GlobalHotkey(GlobalHotkey.Mod.Ctrl | GlobalHotkey.Mod.Shift, Keys.F8, ToggleAbSlot);
+            if (!_toggleHotkey.IsRegistered)
+                Log("[hotkey] Ctrl+Shift+F8 already taken by another app — A/B toggle only via in-app button.");
+        }
+        catch (Exception ex) { Log($"[hotkey] init failed (continuing without it): {ex.Message}"); }
 
-        // Game auto-detection: when foreground process matches the game list,
-        // switch to Slot A (footstep chain); otherwise Slot B (casual chain).
-        _watcher = new ForegroundWatcher(TimeSpan.FromSeconds(1));
-        _watcher.ForegroundChanged += OnForegroundChanged;
+        try
+        {
+            _watcher = new ForegroundWatcher(TimeSpan.FromSeconds(1));
+            _watcher.ForegroundChanged += OnForegroundChanged;
+        }
+        catch (Exception ex) { Log($"[watcher] init failed (continuing without auto-switch): {ex.Message}"); }
 
-        BuildTrayIcon();
+        try { BuildTrayIcon(); }
+        catch (Exception ex) { Log($"[tray] init failed (continuing without tray icon): {ex.Message}"); }
 
         FormClosed += (_, _) =>
         {
-            _toggleHotkey?.Dispose();
-            _watcher?.Dispose();
-            _tray?.Dispose();
+            try { _toggleHotkey?.Dispose(); } catch { }
+            try { _watcher?.Dispose(); } catch { }
+            try { _tray?.Dispose(); } catch { }
         };
 
         // Minimize-to-tray instead of taskbar so auto-switching keeps running.
+        // If the tray failed to initialize, fall back to staying on the taskbar.
         Resize += (_, _) =>
         {
-            if (WindowState == FormWindowState.Minimized) { Hide(); _tray?.ShowBalloonTip(800, "Hear It Loud", "Still running — auto-switching A/B by game.", ToolTipIcon.Info); }
+            if (WindowState != FormWindowState.Minimized) return;
+            if (_tray is null) return;
+            try { Hide(); _tray.ShowBalloonTip(800, "Hear It Loud", "Still running — auto-switching A/B by game.", ToolTipIcon.Info); }
+            catch { /* balloon tip is best-effort */ }
         };
     }
 
