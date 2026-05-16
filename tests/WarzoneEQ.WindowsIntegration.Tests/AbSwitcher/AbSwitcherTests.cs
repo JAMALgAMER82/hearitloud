@@ -22,7 +22,8 @@ public class AbSwitcherTests : IDisposable
         if (Directory.Exists(_configDir)) Directory.Delete(_configDir, recursive: true);
     }
 
-    private AbSwitcher NewSwitcher() => new(new FakeEqApoLocator(_configDir), new AtomicFileWriter());
+    private WarzoneEQ.WindowsIntegration.AbSwitcher.AbSwitcher NewSwitcher() =>
+        new(new FakeEqApoLocator(_configDir), new AtomicFileWriter());
 
     [Fact]
     public void Install_writes_both_slot_files_and_starts_on_slot_A()

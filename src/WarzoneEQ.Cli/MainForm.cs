@@ -7,6 +7,7 @@ using WarzoneEQ.WindowsIntegration.AbSwitcher;
 using WarzoneEQ.WindowsIntegration.EqApo;
 using WarzoneEQ.WindowsIntegration.Files;
 using WarzoneEQ.WindowsIntegration.Plugins;
+using WarzoneEQ.WindowsIntegration.ProcessWatch;
 using WarzoneEQ.WindowsIntegration.Updates;
 
 namespace WarzoneEQ.Cli;
@@ -29,6 +30,10 @@ public sealed class MainForm : Form
     private CancellationTokenSource? _cts;
     private UpdateInfo? _pendingUpdate;
     private GlobalHotkey? _toggleHotkey;
+    private ForegroundWatcher? _watcher;
+    private NotifyIcon? _tray;
+    private bool _autoSwitchEnabled = true;
+    private ProcessProfileMap _profileMap = ProcessProfileMap.Default;
 
     public MainForm() : this(initialPreset: null) { }
 
@@ -185,7 +190,71 @@ public sealed class MainForm : Form
         _toggleHotkey = new GlobalHotkey(GlobalHotkey.Mod.Ctrl | GlobalHotkey.Mod.Shift, Keys.F8, ToggleAbSlot);
         if (!_toggleHotkey.IsRegistered)
             Log("[hotkey] Ctrl+Shift+F8 already taken by another app — A/B toggle only via in-app button.");
-        FormClosed += (_, _) => _toggleHotkey?.Dispose();
+
+        // Game auto-detection: when foreground process matches the game list,
+        // switch to Slot A (footstep chain); otherwise Slot B (casual chain).
+        _watcher = new ForegroundWatcher(TimeSpan.FromSeconds(1));
+        _watcher.ForegroundChanged += OnForegroundChanged;
+
+        BuildTrayIcon();
+
+        FormClosed += (_, _) =>
+        {
+            _toggleHotkey?.Dispose();
+            _watcher?.Dispose();
+            _tray?.Dispose();
+        };
+
+        // Minimize-to-tray instead of taskbar so auto-switching keeps running.
+        Resize += (_, _) =>
+        {
+            if (WindowState == FormWindowState.Minimized) { Hide(); _tray?.ShowBalloonTip(800, "Hear It Loud", "Still running — auto-switching A/B by game.", ToolTipIcon.Info); }
+        };
+    }
+
+    private void BuildTrayIcon()
+    {
+        _tray = new NotifyIcon
+        {
+            Icon = Icon, // form icon = exe icon (radiation-trefoil-with-ear)
+            Text = "Hear It Loud",
+            Visible = true,
+        };
+        var menu = new ContextMenuStrip();
+        var showItem = menu.Items.Add("Show Hear It Loud", null, (_, _) => { Show(); WindowState = FormWindowState.Normal; Activate(); });
+        var toggleItem = menu.Items.Add("Toggle A/B (Ctrl+Shift+F8)", null, (_, _) => ToggleAbSlot());
+        var autoItem = (ToolStripMenuItem)menu.Items.Add("Auto-switch by foreground game", null, (_, _) =>
+        {
+            _autoSwitchEnabled = !_autoSwitchEnabled;
+            ((ToolStripMenuItem)menu.Items[2]).Checked = _autoSwitchEnabled;
+            Log($"[auto-switch] {(_autoSwitchEnabled ? "ENABLED" : "disabled")}");
+        });
+        autoItem.Checked = _autoSwitchEnabled;
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Quit", null, (_, _) => { _tray!.Visible = false; Application.Exit(); });
+        _tray.ContextMenuStrip = menu;
+        _tray.DoubleClick += (_, _) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
+    }
+
+    private void OnForegroundChanged(string? processName)
+    {
+        if (!_autoSwitchEnabled) return;
+        if (InvokeRequired) { BeginInvoke(() => OnForegroundChanged(processName)); return; }
+        try
+        {
+            var locator = new RegistryEqApoLocator();
+            if (!locator.IsInstalled) return;
+            var ab = new AbSwitcher(locator, new AtomicFileWriter());
+            if (!File.Exists(ab.PathFor(AbSlot.A)) || !File.Exists(ab.PathFor(AbSlot.B))) return;
+            var target = _profileMap.SlotFor(processName);
+            if (ab.Active != target)
+            {
+                ab.SwitchTo(target);
+                Log($"[auto-switch] foreground='{processName ?? "(none)"}' -> Slot {target}");
+                if (_tray is not null) _tray.Text = $"Hear It Loud — Slot {target}";
+            }
+        }
+        catch (Exception ex) { Log($"[auto-switch] failed: {ex.Message}"); }
     }
 
     internal void ToggleAbSlot()
