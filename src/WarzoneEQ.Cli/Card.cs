@@ -22,39 +22,33 @@ public sealed class Card : Panel
     public string? Subtitle { get; set; }
     public string? Icon { get; set; } // single emoji / glyph rendered next to the title
 
-    private readonly Panel _body;
-    public Panel Body => _body;
+    // v1.10.5: REMOVED the nested _body Panel. On the user's laptop the
+    // nested transparent-Panel-inside-opaque-Card stack made buttons
+    // invisible AND unclickable (Plugin Control checkboxes worked because
+    // they sit inside additional FlowLayoutPanel/TableLayoutPanel layers,
+    // but a Button.Dock=Fill directly in the transparent Body got swallowed).
+    //
+    // New design: Card IS the container. Children added to Card.Controls.
+    // Card.Padding leaves room for the painted title strip at the top.
+    // Card.Body property returns `this` so existing call sites
+    // (card.Body.Controls.Add(...)) keep working without edits.
+    public Control Body => this;
 
     public Card()
     {
         DoubleBuffered = true;
-        // v1.10.2: was Color.Transparent — on certain Windows + DWM combos
-        // the transparency compositing path triggered a SetParent Win32
-        // failure during child-control construction ("Failed to set Win32
-        // parent window of the Control"). Solid CardFill is visually
-        // identical (the form's BgRoot shows outside the rounded region
-        // anyway) and routes around the bug.
         BackColor = Theme.CardFill;
-        Padding = new Padding(0);
-
-        // v1.10.4: Body MUST be transparent so the Card's painted title strip
-        // (icon + title + subtitle drawn in OnPaint on the Card's surface)
-        // shows through. Card itself is opaque (the SetParent fix from v1.10.2);
-        // Body's transparency is fine because Body's parent is now non-transparent.
-        // Without this, v1.10.3 rendered cards as empty rectangles.
-        _body = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.Transparent,
-            Padding = new Padding(16, 50, 16, 14),
-        };
-        Controls.Add(_body);
+        Padding = HasTitlePadding(hasTitle: false); // updated in OnResize once Title is set
     }
+
+    private static Padding HasTitlePadding(bool hasTitle)
+        => hasTitle ? new Padding(16, 50, 16, 14) : new Padding(16, 14, 16, 14);
 
     protected override void OnResize(EventArgs eventargs)
     {
         base.OnResize(eventargs);
-        _body.Padding = new Padding(16, string.IsNullOrEmpty(Title) ? 14 : 50, 16, 14);
+        // Padding adjusts to leave room for the painted title strip at the top.
+        Padding = HasTitlePadding(!string.IsNullOrEmpty(Title));
         Invalidate();
     }
 
