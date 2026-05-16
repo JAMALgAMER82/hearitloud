@@ -54,6 +54,39 @@ public static class Workflows
         write("");
         write($"  VST plugins available:   {(vstAvailable ? "yes" : "no")}");
         write($"  HeSuVi (HRIR) installed: {(hrirAvailable ? "yes" : "no")}");
+
+        // Always dump the raw device list — turns "nothing recognized" from a
+        // dead end into actionable info. The user can copy any EndpointName
+        // into the Advanced tab's DAC field, or open an issue with the VID/PID
+        // line so we can add their hardware to vidpid-overlay.json.
+        write("");
+        write("  Scanned playback devices:");
+        if (snap.Devices.Count == 0)
+        {
+            write("    (none — Windows reports no playback endpoints. Is anything plugged in?)");
+        }
+        else
+        {
+            int n = 0;
+            foreach (var dev in snap.Devices)
+            {
+                n++;
+                var bits = new List<string> { dev.Kind.ToString() };
+                if (dev.UsbVidPidKey is { } key) bits.Add(key);
+                if (!string.IsNullOrEmpty(dev.BluetoothName)) bits.Add($"BT:{dev.BluetoothName}");
+                write($"    {n}. \"{dev.EndpointName}\"  [{string.Join(" / ", bits)}]");
+            }
+            write("");
+            if (snap.PrimaryHeadphone is null && snap.MultiEndpointDac is null)
+            {
+                write("  None of these matched the bundled hardware database.");
+                write("  - To use one of them anyway: open the Advanced tab and paste the");
+                write("    endpoint name into the \"DAC\" field, then click Apply.");
+                write("  - To get full auto-detection: please open an issue at");
+                write("    https://github.com/JAMALgAMER82/hearitloud/issues with the VID/PID");
+                write("    or BT name above + your headphone model — I'll add it to the next release.");
+            }
+        }
     }
 
     [SupportedOSPlatform("windows")]
