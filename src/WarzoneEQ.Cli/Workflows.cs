@@ -25,7 +25,8 @@ public sealed record WorkflowOptions(
     bool Wider = false,
     bool FootstepCompressor = true,
     bool Basic = false,
-    bool FootstepPriority = false);
+    bool FootstepPriority = false,
+    PluginOverrides? PluginOverrides = null);
 
 // All long-running operations behind buttons / CLI flags live here so the
 // console entry point and the GUI form can call the same logic without a
@@ -347,6 +348,7 @@ public static class Workflows
             EnableFootstepCompressor = opts.FootstepCompressor,
             EnableVstPlugins = enableVst,
             EnableHrirInclude = enableHrir,
+            PluginOverrides = opts.PluginOverrides,
         };
 
     [SupportedOSPlatform("windows")]

@@ -47,4 +47,11 @@ public sealed record ProfileInput(AudioMode Mode)
     /// </summary>
     public IReadOnlyList<WarzoneEQ.ConfigGenerator.Filters.Filter> UserFilters { get; init; }
         = Array.Empty<WarzoneEQ.ConfigGenerator.Filters.Filter>();
+
+    /// <summary>
+    /// Per-plugin parameter overrides from the Plugin Control card. When
+    /// null, profiles use their built-in defaults. When non-null, individual
+    /// non-null fields override the corresponding hardcoded value.
+    /// </summary>
+    public PluginOverrides? PluginOverrides { get; init; }
 }

@@ -18,6 +18,22 @@ public sealed class FootstepHunterProfile : IProfileGenerator
         var sb = new StringBuilder();
         sb.AppendLine("# warzone\\current.txt — FootstepHunter mode (max positional clarity)");
 
+        // Resolve plugin parameter overrides: null fields fall through to the
+        // profile's tuned-for-Warzone defaults.
+        var o = input.PluginOverrides;
+        double fcDuckThresh   = o?.FcDuckerThresholdDb     ?? -22;
+        double fcDuckRatio    = o?.FcDuckerRatio           ?? 10;
+        double shaper3kGain   = o?.RearShaper3kHzGainDb    ?? 8;
+        double shaper5kGain   = o?.RearShaper5kHzGainDb    ?? 6;
+        double shaper65kGain  = o?.RearShaper6_5kHzGainDb  ?? 4;
+        double compThresh     = o?.FootstepCompThresholdDb ?? -38;
+        string compRatio      = o?.FootstepCompRatio       ?? "1:3";
+        double limCeiling     = o?.LimiterCeilingDb        ?? -0.5;
+        bool fcDuckEnabled    = (o?.FcDuckerEnabled       ?? true) && input.EnableVstPlugins;
+        bool shapersEnabled   = (o?.RearShapersEnabled    ?? true) && input.EnableVstPlugins;
+        bool compEnabled      = (o?.FootstepCompEnabled   ?? input.EnableFootstepCompressor) && input.EnableVstPlugins;
+        bool limEnabled       = (o?.LimiterEnabled        ?? true) && input.EnableVstPlugins;
+
         if (input.DacEndpoint.DeviceDirective is { } directive)
             sb.AppendLine(directive);
 
@@ -52,8 +68,8 @@ public sealed class FootstepHunterProfile : IProfileGenerator
             new[] { Channel.FC },
             PreampDb: -12,
             Filters: new[] { Filter.Peaking(1200, gainDb: -5, q: 5) },
-            Plugins: input.EnableVstPlugins
-                ? new Plugin[] { TdrNova.SpectralDucker(thresholdDb: -22, ratio: 10, freqLow: 200, freqHigh: 5000) }
+            Plugins: fcDuckEnabled
+                ? new Plugin[] { TdrNova.SpectralDucker(thresholdDb: fcDuckThresh, ratio: fcDuckRatio, freqLow: 200, freqHigh: 5000) }
                 : null));
 
         // Rears/sides: every footstep cue we can extract lives here. Stack
@@ -66,12 +82,12 @@ public sealed class FootstepHunterProfile : IProfileGenerator
             new[] { Channel.BL, Channel.BR, Channel.SL, Channel.SR },
             PreampDb: 6,
             Filters: new[] { Filter.HighShelf(2000, gainDb: 4) },
-            Plugins: input.EnableVstPlugins
+            Plugins: shapersEnabled
                 ? new Plugin[]
                 {
-                    TdrNova.TransientShaper(freqHz: 3000, gainDb: 8, q: 2.0),
-                    TdrNova.TransientShaper(freqHz: 5000, gainDb: 6, q: 2.0),
-                    TdrNova.TransientShaper(freqHz: 6500, gainDb: 4, q: 2.5),
+                    TdrNova.TransientShaper(freqHz: 3000, gainDb: shaper3kGain, q: 2.0),
+                    TdrNova.TransientShaper(freqHz: 5000, gainDb: shaper5kGain, q: 2.0),
+                    TdrNova.TransientShaper(freqHz: 6500, gainDb: shaper65kGain, q: 2.5),
                 }
                 : null));
 
@@ -91,13 +107,13 @@ public sealed class FootstepHunterProfile : IProfileGenerator
 
         EmitFpsCurve(sb, input);
 
-        if (input.EnableVstPlugins && input.EnableFootstepCompressor)
+        if (compEnabled)
             sb.AppendLine(ReaXcomp.UpwardCompressor(
                 bandIndex: 1, freqLowHz: 2000, freqHighHz: 4500,
-                thresholdDb: -38, ratio: "1:3", attackMs: 3, releaseMs: 60).ToConfigLine());
+                thresholdDb: compThresh, ratio: compRatio, attackMs: 3, releaseMs: 60).ToConfigLine());
 
-        if (input.EnableVstPlugins)
-            sb.AppendLine(LoudMax.Limiter(-0.5).ToConfigLine());
+        if (limEnabled)
+            sb.AppendLine(LoudMax.Limiter(limCeiling).ToConfigLine());
 
         return sb.ToString();
     }

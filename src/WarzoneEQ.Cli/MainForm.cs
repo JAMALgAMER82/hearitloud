@@ -8,6 +8,7 @@ using WarzoneEQ.WindowsIntegration.EqApo;
 using WarzoneEQ.WindowsIntegration.Files;
 using WarzoneEQ.WindowsIntegration.Plugins;
 using WarzoneEQ.WindowsIntegration.ProcessWatch;
+using WarzoneEQ.WindowsIntegration.TestSignal;
 using WarzoneEQ.WindowsIntegration.Updates;
 
 namespace WarzoneEQ.Cli;
@@ -386,13 +387,14 @@ public sealed class MainForm : Form
 
         var cards = new[]
         {
-            BuildEasyCard("⚡", "Auto Setup", "Recommended for first run.",          "Run Auto Setup", Theme.BtnSafe,       w => Workflows.Auto(w, new WorkflowOptions())),
-            BuildEasyCard("👣", "Footstep Priority", "Max competitive clarity.",     "Run",            Theme.BtnAggressive, w => Workflows.Auto(w, new WorkflowOptions(FootstepPriority: true))),
-            BuildEasyCard("🔧", "Diagnose && Auto-Fix", "If anything sounds wrong.", "Run",            Theme.BtnInfo,       w => Workflows.Diagnose(w, applyFix: true)),
-            BuildEasyCard("🎧", "Detect My Hardware", "List headphones + DAC.",      "Detect",         Theme.BtnNeutral,    w => Workflows.Detect(w, basic: false)),
-            BuildEasyCard("🔊", "Sound Settings",     "Open Windows audio panel.",   "Open",           Theme.BtnNeutral,    null, OpenSoundSettings),
-            BuildEasyCard("🧩", "Optional Plugins",   "Full-quality chain helpers.", "Install / Info", Theme.BtnNeutral,    null, OpenPluginGuide),
-            BuildEasyCard("📋", "Audio Cheat Sheet",  "In-game + Windows settings.", "Show",           Theme.BtnCheat,      null, ShowCheatSheet),
+            BuildEasyCard("⚡", "Auto Setup", "Recommended for first run.",                            "Run Auto Setup", Theme.BtnSafe,       w => Workflows.Auto(w, new WorkflowOptions())),
+            BuildEasyCard("👣", "Footstep Priority", "Max competitive clarity.",                       "Run",            Theme.BtnAggressive, w => Workflows.Auto(w, new WorkflowOptions(FootstepPriority: true))),
+            BuildEasyCard("🔧", "Diagnose && Auto-Fix", "If anything sounds wrong.",                   "Run",            Theme.BtnInfo,       w => Workflows.Diagnose(w, applyFix: true)),
+            BuildEasyCard("🎧", "Detect My Hardware", "List headphones + DAC.",                        "Detect",         Theme.BtnNeutral,    w => Workflows.Detect(w, basic: false)),
+            BuildEasyCard("🔊", "Sound Settings",     "Open Windows audio panel.",                     "Open",           Theme.BtnNeutral,    null, OpenSoundSettings),
+            BuildEasyCard("🧩", "Optional Plugins",   "Full-quality chain helpers.",                   "Install / Info", Theme.BtnNeutral,    null, OpenPluginGuide),
+            BuildEasyCard("📋", "Audio Cheat Sheet",  "In-game + Windows settings.",                   "Show",           Theme.BtnCheat,      null, ShowCheatSheet),
+            BuildEasyCard("🔉", "Test Footsteps",     "Synthetic test signal through your chain.",     "Play 5 s",       Theme.BtnInfo,       null, PlayFootstepTest),
         };
 
         for (int i = 0; i < cards.Length; i++)
@@ -435,6 +437,31 @@ public sealed class MainForm : Form
     {
         ClearLog();
         foreach (var line in AudioCheatSheet.Split('\n')) Log(line.TrimEnd('\r'));
+    }
+
+    private void PlayFootstepTest()
+    {
+        ClearLog();
+        Log("=== Footstep Test Signal ===");
+        Log("");
+        Log("Playing 5 s of synthetic footstep-band transients (band-limited");
+        Log("noise bursts at ~3 kHz, panned across the stereo field). The signal");
+        Log("is generated procedurally — no game audio involved.");
+        Log("");
+        Log("With FootstepHunter active you should hear: louder, sharper, wider");
+        Log("hits than with the chain bypassed. If they sound flat or muffled,");
+        Log("re-run Diagnose & Auto-Fix to verify the chain is loaded.");
+        try
+        {
+            var path = FootstepTestSignal.WriteToTempFile(Log);
+            var player = new System.Media.SoundPlayer(path);
+            player.Play(); // returns immediately
+            Log("[test] playing now...");
+        }
+        catch (Exception ex)
+        {
+            Log($"[test] playback failed: {ex.Message}");
+        }
     }
 
     private const string AudioCheatSheet = @"=== Warzone Audio Cheat Sheet ===
@@ -672,20 +699,24 @@ internal sealed class AdvancedTab : UserControl
         Dock = DockStyle.Fill;
         BackColor = Theme.BgRoot;
 
-        // v1.6.1: 2x2 card grid instead of a single flat TableLayoutPanel.
-        // Profile + Hardware on top, Toggles + Actions on bottom.
+        // v1.6.1: 2x2 card grid (Profile, Hardware, Toggles, Actions).
+        // v1.8.0: + a 3rd row spanning both columns hosts the new Plugin
+        // Control card (sliders + per-plugin enable toggles + auto-apply
+        // debounce). Bottom row gets ~40% of the height since it has more
+        // controls.
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 2,
+            RowCount = 3,
             BackColor = Theme.BgRoot,
             Padding = new Padding(2),
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
 
         _mode = MakeCombo(Enum.GetNames<AudioMode>(), nameof(AudioMode.Competitive));
         _curve = MakeCombo(Enum.GetNames<FpsCurveName>(), nameof(FpsCurveName.Moderate));
@@ -737,6 +768,11 @@ internal sealed class AdvancedTab : UserControl
         layout.Controls.Add(BuildHardwareCard(), 1, 0);
         layout.Controls.Add(BuildTogglesCard(),  0, 1);
         layout.Controls.Add(BuildActionsCard(),  1, 1);
+
+        var pluginCard = BuildPluginControlCard();
+        layout.Controls.Add(pluginCard, 0, 2);
+        layout.SetColumnSpan(pluginCard, 2);
+
         Controls.Add(layout);
     }
 
@@ -818,6 +854,182 @@ internal sealed class AdvancedTab : UserControl
         }
         card.Body.Controls.Add(flow);
         return card;
+    }
+
+    // ----- Card 5 (v1.8): PLUGIN CONTROL — sliders + per-plugin enables ---
+    // Sliders auto-apply with a 350 ms debounce (resetting Timer on each
+    // change). Only meaningful when current Mode == FootstepHunter — the
+    // other profiles ignore PluginOverrides today, so the card prints a
+    // hint into the log if you click Apply while a non-FH mode is selected.
+    private System.Windows.Forms.Timer? _debounceTimer;
+    private CheckBox? _enFcDuck, _enRearShapers, _enFootstepComp, _enLimiter;
+    private PurpleSlider? _slFcThresh, _slFcRatio, _slShaper3k, _slShaper5k, _slShaper65k, _slCompThresh, _slLimCeil;
+    private Label? _lblFcThresh, _lblFcRatio, _lblShaper3k, _lblShaper5k, _lblShaper65k, _lblCompThresh, _lblLimCeil;
+
+    private Card BuildPluginControlCard()
+    {
+        var card = new Card
+        {
+            Title = "Plugin Control",
+            Subtitle = "Tune FootstepHunter's plugin parameters — auto-applies after a brief pause.",
+            Icon = "🎛",
+            Margin = new Padding(8),
+            Dock = DockStyle.Fill,
+        };
+
+        // 350 ms debounced re-apply: every slider/check change resets the
+        // timer. Avoids hammering EQ APO when the user drags fast.
+        _debounceTimer = new System.Windows.Forms.Timer { Interval = 350 };
+        _debounceTimer.Tick += (_, _) => { _debounceTimer!.Stop(); ApplyPluginOverrides(); };
+
+        // Layout: 4 enable checkboxes across the top, then 7 sliders in a
+        // 2-column grid below (with value labels on the right).
+        var root = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Color.Transparent,
+        };
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var checkRow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+        };
+        _enFcDuck       = MakeCheck("FC Ducker",          checkedState: true);
+        _enRearShapers  = MakeCheck("Rear Shapers",       checkedState: true);
+        _enFootstepComp = MakeCheck("Footstep Comp",      checkedState: true);
+        _enLimiter      = MakeCheck("Limiter",            checkedState: true);
+        foreach (var c in new[] { _enFcDuck, _enRearShapers, _enFootstepComp, _enLimiter })
+        {
+            c.Margin = new Padding(0, 6, 18, 0);
+            c.CheckedChanged += (_, _) => RestartDebounce();
+            checkRow.Controls.Add(c);
+        }
+        root.Controls.Add(checkRow, 0, 0);
+
+        var sliderGrid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 4,
+            RowCount = 4,
+            BackColor = Color.Transparent,
+        };
+        sliderGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+        sliderGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        sliderGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+        sliderGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        for (int i = 0; i < 4; i++) sliderGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+
+        AddSlider(sliderGrid, 0, 0, "FC Duck Thresh", -40, -10, -22, " dB", out _slFcThresh, out _lblFcThresh);
+        AddSlider(sliderGrid, 2, 0, "FC Duck Ratio",    1,  20,  10, ":1", out _slFcRatio,  out _lblFcRatio);
+        AddSlider(sliderGrid, 0, 1, "Shaper 3 kHz",     0,  12,   8, " dB", out _slShaper3k,  out _lblShaper3k);
+        AddSlider(sliderGrid, 2, 1, "Shaper 5 kHz",     0,  12,   6, " dB", out _slShaper5k,  out _lblShaper5k);
+        AddSlider(sliderGrid, 0, 2, "Shaper 6.5 kHz",   0,   8,   4, " dB", out _slShaper65k, out _lblShaper65k);
+        AddSlider(sliderGrid, 2, 2, "Comp Threshold", -60, -20, -38, " dB", out _slCompThresh, out _lblCompThresh);
+        AddSlider(sliderGrid, 0, 3, "Limiter Ceiling", -30,   0,  -5, " dB (×0.1)", out _slLimCeil, out _lblLimCeil);
+
+        var resetBtn = MainForm.MakeBigButton("Reset to FootstepHunter defaults", Theme.BtnNeutral);
+        resetBtn.Dock = DockStyle.Fill;
+        resetBtn.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        resetBtn.Click += (_, _) => ResetPluginOverridesToDefaults();
+        sliderGrid.Controls.Add(resetBtn, 2, 3);
+        sliderGrid.SetColumnSpan(resetBtn, 2);
+
+        root.Controls.Add(sliderGrid, 0, 1);
+        card.Body.Controls.Add(root);
+        return card;
+    }
+
+    private void AddSlider(TableLayoutPanel grid, int col, int row, string label,
+        int min, int max, int initial, string unit,
+        out PurpleSlider slider, out Label valueLabel)
+    {
+        var captionPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = Color.Transparent };
+        captionPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        captionPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        var caption = MakeLabel(label);
+        caption.Font = new Font("Segoe UI", 8.5F);
+        valueLabel = MakeLabel("");
+        valueLabel.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        valueLabel.ForeColor = Theme.Accent;
+        captionPanel.Controls.Add(caption, 0, 0);
+        captionPanel.Controls.Add(valueLabel, 0, 1);
+
+        slider = new PurpleSlider { Dock = DockStyle.Fill, Minimum = min, Maximum = max, Value = initial };
+        var lbl = valueLabel;
+        var unitCopy = unit;
+        slider.ValueChanged += (s, _) =>
+        {
+            var v = ((PurpleSlider)s!).Value;
+            // Limiter ceiling is shown in tenths of a dB so the slider's
+            // integer range gives sub-dB resolution.
+            if (unitCopy.Contains("×0.1")) lbl.Text = $"{(v / 10.0):0.0} dB";
+            else lbl.Text = $"{v}{unitCopy}";
+            RestartDebounce();
+        };
+        // Force initial label render.
+        slider.Value = initial - 1; slider.Value = initial;
+
+        grid.Controls.Add(captionPanel, col, row);
+        grid.Controls.Add(slider, col + 1, row);
+    }
+
+    private void RestartDebounce()
+    {
+        if (_debounceTimer is null) return;
+        _debounceTimer.Stop();
+        _debounceTimer.Start();
+    }
+
+    private void ResetPluginOverridesToDefaults()
+    {
+        if (_slFcThresh   is not null) _slFcThresh.Value   = -22;
+        if (_slFcRatio    is not null) _slFcRatio.Value    =  10;
+        if (_slShaper3k   is not null) _slShaper3k.Value   =   8;
+        if (_slShaper5k   is not null) _slShaper5k.Value   =   6;
+        if (_slShaper65k  is not null) _slShaper65k.Value  =   4;
+        if (_slCompThresh is not null) _slCompThresh.Value = -38;
+        if (_slLimCeil    is not null) _slLimCeil.Value    =  -5;  // shown as -0.5 dB
+        if (_enFcDuck       is not null) _enFcDuck.Checked       = true;
+        if (_enRearShapers  is not null) _enRearShapers.Checked  = true;
+        if (_enFootstepComp is not null) _enFootstepComp.Checked = true;
+        if (_enLimiter      is not null) _enLimiter.Checked      = true;
+        _owner.Log("[plugin-control] reset to FootstepHunter defaults.");
+    }
+
+    private PluginOverrides ReadPluginOverrides() => new()
+    {
+        FcDuckerThresholdDb     = _slFcThresh?.Value,
+        FcDuckerRatio           = _slFcRatio?.Value,
+        RearShaper3kHzGainDb    = _slShaper3k?.Value,
+        RearShaper5kHzGainDb    = _slShaper5k?.Value,
+        RearShaper6_5kHzGainDb  = _slShaper65k?.Value,
+        FootstepCompThresholdDb = _slCompThresh?.Value,
+        LimiterCeilingDb        = _slLimCeil is null ? null : _slLimCeil.Value / 10.0,
+        FcDuckerEnabled         = _enFcDuck?.Checked,
+        RearShapersEnabled      = _enRearShapers?.Checked,
+        FootstepCompEnabled     = _enFootstepComp?.Checked,
+        LimiterEnabled          = _enLimiter?.Checked,
+    };
+
+    private void ApplyPluginOverrides()
+    {
+        // Read the current top-half settings and inject the overrides, then
+        // reuse the existing Apply path. Only meaningful for FootstepHunter
+        // mode today; print a hint otherwise.
+        var opts = ReadOptionsFromControls() with { PluginOverrides = ReadPluginOverrides() };
+        if (opts.Mode != AudioMode.FootstepHunter)
+        {
+            _owner.Log($"[plugin-control] note: '{opts.Mode}' profile ignores Plugin Control overrides — switch Mode to FootstepHunter to hear them.");
+        }
+        _owner.OnAdvancedApplied(opts);
+        _owner.Run("Apply (plugin overrides)", w => Workflows.Install(w, Workflows.BuildInput(opts)));
     }
 
     // ----- Card 4: ACTIONS (Preview / Apply / Reset / Save / Load) ---------
