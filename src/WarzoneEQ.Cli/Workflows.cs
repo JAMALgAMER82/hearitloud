@@ -5,6 +5,7 @@ using WarzoneEQ.DeviceDetection;
 using WarzoneEQ.DeviceDetection.Detection;
 using WarzoneEQ.DeviceDetection.Matching;
 using WarzoneEQ.WindowsIntegration;
+using WarzoneEQ.WindowsIntegration.AbSwitcher;
 using WarzoneEQ.WindowsIntegration.Diagnostics;
 using WarzoneEQ.WindowsIntegration.EqApo;
 using WarzoneEQ.WindowsIntegration.Files;
@@ -109,16 +110,41 @@ public static class Workflows
             write("[error] Equalizer APO is not installed. Install it first from https://equalizerapo.com.");
             return 3;
         }
-        var installer = new WarzoneConfigInstaller(locator, new AtomicFileWriter());
-        var path = installer.Install(input);
-        write("Installed Hear It Loud config to:");
-        write($"  {path}");
+
+        // Always install in A/B mode: primary = user's choice, secondary =
+        // the natural counterpart (FootstepHunter <-> Cinematic, fallback
+        // Cinematic). Lets the user toggle mid-game via the global hotkey
+        // without re-running --auto. The master config still includes
+        // warzone\current.txt, which is now the A/B selector file.
+        var writer = new AtomicFileWriter();
+        var installer = new WarzoneConfigInstaller(locator, writer);
+        installer.EnsureMasterIncludeOnly();
+
+        var ab = new AbSwitcher(locator, writer);
+        var secondary = ChooseSecondary(input);
+        ab.Install(input, secondary);
+
+        write("Installed Hear It Loud A/B config:");
+        write($"  Slot A (active):  {input.Mode}");
+        write($"  Slot B:           {secondary.Mode}");
+        write($"  Selector:         {ab.SelectorPath}");
+        write("");
+        write("Press Ctrl+Shift+F8 in-game (or click \"Toggle A/B\" in the app)");
+        write("to switch between slots. Switch takes ~60 ms — no audio dropout.");
         write("");
         write("Equalizer APO will hot-reload automatically (no restart needed).");
         write("In Warzone: Settings -> Audio -> Audio Mix = Headphones Bass Cut,");
         write("Surround Sound = 7.1, Music = 0, Enhanced Headphone Mode = OFF.");
         return 0;
     }
+
+    private static ProfileInput ChooseSecondary(ProfileInput primary) => primary.Mode switch
+    {
+        AudioMode.FootstepHunter => primary with { Mode = AudioMode.Cinematic },
+        AudioMode.Cinematic => primary with { Mode = AudioMode.FootstepHunter },
+        AudioMode.Competitive => primary with { Mode = AudioMode.Cinematic },
+        _ => primary with { Mode = AudioMode.Cinematic },
+    };
 
     public static int Print(Action<string> write, ProfileInput input)
     {

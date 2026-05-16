@@ -21,7 +21,8 @@ public class FootstepHunterProfileTests
         var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
         output.Should().Contain("Channel: FC");
         output.Should().Contain("Preamp: -10.0 dB");
-        output.Should().Contain("Plugin: \"TDR Nova\" -bandA-thresh -32.0");
+        output.Should().Contain("Plugin: \"TDR Nova\" -bandA-thresh -24.0");
+        output.Should().Contain("Filter: ON PK Fc 1200 Hz Gain -3.0 dB Q 4");
     }
 
     [Fact]
@@ -31,6 +32,21 @@ public class FootstepHunterProfileTests
         output.Should().Contain("Channel: BL BR SL SR");
         output.Should().Contain("Preamp: 5.0 dB");
         output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 3000 -bandB-gain +7.0 -bandB-Q 2.0");
+    }
+
+    [Fact]
+    public void Stacks_a_second_transient_shaper_at_5_kHz_for_hard_surface_scuffs()
+    {
+        var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
+        output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 3000");
+        output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 5000 -bandB-gain +5.0");
+    }
+
+    [Fact]
+    public void Notches_gunshot_band_on_LR_channels()
+    {
+        var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
+        output.Should().MatchRegex(@"Channel: L R[\s\S]*?Filter: ON PK Fc 1200 Hz Gain -3\.0 dB Q 4");
     }
 
     [Fact]

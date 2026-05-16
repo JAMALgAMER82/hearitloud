@@ -3,6 +3,10 @@ using System.Drawing;
 using System.Runtime.Versioning;
 using System.Windows.Forms;
 using WarzoneEQ.ConfigGenerator.Models;
+using WarzoneEQ.WindowsIntegration.AbSwitcher;
+using WarzoneEQ.WindowsIntegration.EqApo;
+using WarzoneEQ.WindowsIntegration.Files;
+using WarzoneEQ.WindowsIntegration.Plugins;
 using WarzoneEQ.WindowsIntegration.Updates;
 
 namespace WarzoneEQ.Cli;
@@ -24,6 +28,7 @@ public sealed class MainForm : Form
     private readonly Button _btnCheckUpdate;
     private CancellationTokenSource? _cts;
     private UpdateInfo? _pendingUpdate;
+    private GlobalHotkey? _toggleHotkey;
 
     public MainForm() : this(initialPreset: null) { }
 
@@ -58,18 +63,22 @@ public sealed class MainForm : Form
             BackColor = BgDarker,
         };
 
-        var tabs = new TabControl
+        var tabs = new UnderlinedTabControl
         {
             Dock = DockStyle.Top,
             Height = 360,
             Appearance = TabAppearance.FlatButtons,
             SizeMode = TabSizeMode.Fixed,
-            ItemSize = new Size(140, 30),
-            Padding = new Point(20, 6),
+            ItemSize = new Size(160, 34),
+            Padding = new Point(20, 8),
+            Underline = AccentGold,
+            TabBg = BgDarker,
+            ActiveBg = BgDark,
+            TabFg = FgText,
         };
 
-        var easyTab = new TabPage("  Easy Mode  ") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
-        var advTab  = new TabPage("  Advanced  ") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
+        var easyTab = new TabPage("⚡  Easy Mode") { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
+        var advTab  = new TabPage("⚙  Advanced")  { BackColor = BgDark, Padding = new Padding(20, 10, 20, 10) };
 
         var easyButtons = BuildEasyTab(easyTab);
         _easyButtons = easyButtons;
@@ -170,6 +179,32 @@ public sealed class MainForm : Form
                 Log("[preset] Loaded from .warzeq file. Click Apply (Install) to use it.");
             }
         }
+
+        // Register Ctrl+Shift+F8 as a global hotkey to toggle the A/B slot.
+        // Silent fallback if registration fails (another app may own the combo).
+        _toggleHotkey = new GlobalHotkey(GlobalHotkey.Mod.Ctrl | GlobalHotkey.Mod.Shift, Keys.F8, ToggleAbSlot);
+        if (!_toggleHotkey.IsRegistered)
+            Log("[hotkey] Ctrl+Shift+F8 already taken by another app — A/B toggle only via in-app button.");
+        FormClosed += (_, _) => _toggleHotkey?.Dispose();
+    }
+
+    internal void ToggleAbSlot()
+    {
+        if (InvokeRequired) { BeginInvoke(ToggleAbSlot); return; }
+        try
+        {
+            var locator = new RegistryEqApoLocator();
+            if (!locator.IsInstalled) { Log("[a/b] Equalizer APO not installed — can't toggle."); return; }
+            var ab = new AbSwitcher(locator, new AtomicFileWriter());
+            if (!File.Exists(ab.PathFor(AbSlot.A)) || !File.Exists(ab.PathFor(AbSlot.B)))
+            {
+                Log("[a/b] A/B slots not yet installed — click Auto Setup first.");
+                return;
+            }
+            var newSlot = ab.Toggle();
+            Log($"[a/b] switched to Slot {newSlot} (~60 ms hot-reload).");
+        }
+        catch (Exception ex) { Log($"[a/b] toggle failed: {ex.Message}"); }
     }
 
     internal void OnAdvancedApplied(WorkflowOptions options) => Settings.Save(options);
@@ -267,13 +302,13 @@ public sealed class MainForm : Form
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
 
-        var btnAuto      = MakeBigButton("Auto Setup\n(recommended for first run)", Color.FromArgb(50, 130, 60));
-        var btnFootstep  = MakeBigButton("Footstep Priority\n(max competitive clarity)", Color.FromArgb(180, 110, 30));
-        var btnDiagnose  = MakeBigButton("Diagnose && Auto-Fix\n(if anything sounds wrong)", Color.FromArgb(60, 100, 160));
-        var btnDetect    = MakeBigButton("Detect My Hardware", Color.FromArgb(80, 80, 90));
-        var btnSettings  = MakeBigButton("Open Windows Sound Settings", Color.FromArgb(80, 80, 90));
-        var btnPlugins   = MakeBigButton("Get Optional Plugins\n(for the full-quality chain)", Color.FromArgb(80, 80, 90));
-        var btnCheatSheet = MakeBigButton("Show Audio Cheat Sheet\n(in-game + Windows settings to use)", Color.FromArgb(120, 70, 140));
+        var btnAuto      = MakeBigButton("⚡  Auto Setup\n(recommended for first run)", Color.FromArgb(46, 138, 64));
+        var btnFootstep  = MakeBigButton("👣  Footstep Priority\n(max competitive clarity)", Color.FromArgb(196, 116, 28));
+        var btnDiagnose  = MakeBigButton("🔧  Diagnose && Auto-Fix\n(if anything sounds wrong)", Color.FromArgb(60, 108, 170));
+        var btnDetect    = MakeBigButton("🎧  Detect My Hardware", Color.FromArgb(72, 76, 90));
+        var btnSettings  = MakeBigButton("🔊  Open Windows Sound Settings", Color.FromArgb(72, 76, 90));
+        var btnPlugins   = MakeBigButton("🧩  Get Optional Plugins\n(for the full-quality chain)", Color.FromArgb(72, 76, 90));
+        var btnCheatSheet = MakeBigButton("📋  Show Audio Cheat Sheet\n(in-game + Windows settings to use)", Color.FromArgb(124, 76, 156));
 
         grid.Controls.Add(btnAuto, 0, 0);
         grid.Controls.Add(btnFootstep, 1, 0);
@@ -418,25 +453,83 @@ issues automatically and prints the click path for the rest.";
         ClearLog();
         Log("=== Optional VST plugins for the full-quality chain ===");
         Log("");
-        Log("Hear It Loud works without these — but installing them unlocks the");
-        Log("transient shaper, spectral ducker, and brick-wall limiter.");
+        Log("These three components unlock the transient shaper, spectral ducker,");
+        Log("brick-wall limiter, and HRIR virtual surround that FootstepHunter and");
+        Log("Cinematic modes use. Without them, the chain falls back to basic mode");
+        Log("(filters and curves only — still useful, just less polished).");
         Log("");
-        Log("1. TDR Nova (free, by Tokyo Dawn Labs)");
-        Log("     https://www.tokyodawn.net/tdr-nova/");
+        Log("Choose one of:");
+        Log("  [A] Auto-install all three (recommended). UAC prompts will appear.");
+        Log("  [B] Install just HeSuVi (most impactful — virtual surround).");
+        Log("  [C] Open download pages manually.");
         Log("");
-        Log("2. LoudMax (free, by Thomas Mundt)");
-        Log("     https://loudmaxdownload.com");
+        Log("Type your choice in the next dialog box.");
+        var dlg = new Form
+        {
+            Text = "Install Optional Plugins",
+            Size = new Size(440, 220),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            BackColor = BgDark,
+            ForeColor = FgText,
+            Font = new Font("Segoe UI", 10F),
+        };
+        var btnA = MakeBigButton("A: Install All Three", Color.FromArgb(50, 130, 60));
+        var btnB = MakeBigButton("B: Just HeSuVi", Color.FromArgb(60, 100, 160));
+        var btnC = MakeBigButton("C: Open Download Pages", Color.FromArgb(80, 80, 90));
+        btnA.Height = btnB.Height = btnC.Height = 44;
+        btnA.Dock = btnB.Dock = btnC.Dock = DockStyle.Top;
+        dlg.Controls.Add(btnC);
+        dlg.Controls.Add(btnB);
+        dlg.Controls.Add(btnA);
+        btnA.Click += (_, _) => { dlg.Close(); InstallPluginsAsync(all: true, hesuviOnly: false); };
+        btnB.Click += (_, _) => { dlg.Close(); InstallPluginsAsync(all: false, hesuviOnly: true); };
+        btnC.Click += (_, _) => { dlg.Close(); OpenPluginPagesInBrowser(); };
+        dlg.ShowDialog(this);
+    }
+
+    private void OpenPluginPagesInBrowser()
+    {
         Log("");
-        Log("3. HeSuVi (free, virtual surround)");
-        Log("     https://sourceforge.net/projects/hesuvi/");
+        Log("Opening download pages in your browser:");
+        foreach (var url in new[] {
+            "https://www.tokyodawn.net/tdr-nova/",
+            "https://loudmaxdownload.com",
+            "https://sourceforge.net/projects/hesuvi/",
+        })
+        {
+            Log($"  {url}");
+            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
+        }
         Log("");
         Log("Drop the downloaded .dll files into:");
-        Log("     C:\\Program Files\\EqualizerAPO\\VSTPlugins\\");
-        Log("HeSuVi has its own installer — point it at the EqualizerAPO config dir.");
-        Log("");
-        Log("Then click \"Diagnose & Auto-Fix\" to verify they're picked up.");
-        try { Process.Start(new ProcessStartInfo("https://www.tokyodawn.net/tdr-nova/") { UseShellExecute = true }); }
-        catch { /* user can copy-paste from the log */ }
+        Log("  C:\\Program Files\\EqualizerAPO\\VSTPlugins\\");
+    }
+
+    private void InstallPluginsAsync(bool all, bool hesuviOnly)
+    {
+        Run("Install Optional Plugins", w =>
+        {
+            var installer = new PluginInstaller(new RegistryEqApoLocator());
+            int ok = 0, fail = 0;
+            var queue = all
+                ? new[] { OptionalPlugin.TdrNova, OptionalPlugin.LoudMax, OptionalPlugin.HeSuVi }
+                : hesuviOnly
+                    ? new[] { OptionalPlugin.HeSuVi }
+                    : Array.Empty<OptionalPlugin>();
+            foreach (var p in queue)
+            {
+                var task = installer.InstallAsync(p, w);
+                task.GetAwaiter().GetResult();
+                if (task.Result) ok++; else fail++;
+            }
+            w("");
+            w($"Done: {ok} installed, {fail} failed.");
+            w("Click \"Diagnose & Auto-Fix\" to verify and re-apply the chain.");
+            return fail == 0 ? 0 : 1;
+        });
     }
 
     private static string WelcomeMessage() =>
@@ -763,5 +856,53 @@ internal sealed class AdvancedTab : UserControl
         };
         b.FlatAppearance.BorderSize = 0;
         return b;
+    }
+}
+
+// Tab control with an owner-drawn underline indicator under the active tab,
+// gives the UI a Fluent-ish "selected" affordance instead of WinForms' default
+// 3D button look. Owner-drawing means we also paint the tab background +
+// foreground ourselves so the colors match the form's dark palette.
+[SupportedOSPlatform("windows")]
+internal sealed class UnderlinedTabControl : TabControl
+{
+    public Color Underline { get; set; } = Color.Gold;
+    public Color TabBg     { get; set; } = Color.FromArgb(20, 20, 24);
+    public Color ActiveBg  { get; set; } = Color.FromArgb(28, 28, 32);
+    public Color TabFg     { get; set; } = Color.FromArgb(230, 230, 230);
+    public int UnderlineHeight { get; set; } = 3;
+
+    public UnderlinedTabControl()
+    {
+        DrawMode = TabDrawMode.OwnerDrawFixed;
+        DrawItem += DrawTab;
+    }
+
+    private void DrawTab(object? sender, DrawItemEventArgs e)
+    {
+        var page = TabPages[e.Index];
+        var rect = GetTabRect(e.Index);
+        var active = e.Index == SelectedIndex;
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        using (var bg = new SolidBrush(active ? ActiveBg : TabBg))
+            e.Graphics.FillRectangle(bg, rect);
+
+        var fg = active ? TabFg : Color.FromArgb(160, TabFg.R, TabFg.G, TabFg.B);
+        using (var fgBrush = new SolidBrush(fg))
+        {
+            var sf = new StringFormat
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+            };
+            e.Graphics.DrawString(page.Text, Font, fgBrush, rect, sf);
+        }
+
+        if (active)
+        {
+            using var ul = new SolidBrush(Underline);
+            e.Graphics.FillRectangle(ul, rect.Left + 6, rect.Bottom - UnderlineHeight, rect.Width - 12, UnderlineHeight);
+        }
     }
 }

@@ -2,7 +2,7 @@
 ; Bundles HearItLoud.exe + bootstraps Equalizer APO + runs --auto.
 
 #define MyAppName        "Hear It Loud"
-#define MyAppVersion     "1.1.3"
+#define MyAppVersion     "1.2.0"
 #define MyAppPublisher   "MasterMind George"
 #define MyAppURL         "https://github.com/yourname/hearitloud"
 #define MyAppExeName     "HearItLoud.exe"
@@ -23,7 +23,7 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
-SetupIconFile=
+SetupIconFile=hearitloud.ico
 PrivilegesRequired=admin
 AlwaysRestart=yes
 ; In-place upgrades: detect a running HearItLoud.exe and close it cleanly,

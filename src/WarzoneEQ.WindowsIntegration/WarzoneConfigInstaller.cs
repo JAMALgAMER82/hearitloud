@@ -24,6 +24,11 @@ public sealed class WarzoneConfigInstaller
         return path;
     }
 
+    // Used by AbSwitcher-based installs: ensures the master config has our
+    // conditional Include block (so Warzone-only routing still applies) but
+    // does NOT write current.txt — the A/B switcher owns that file.
+    public void EnsureMasterIncludeOnly() => EnsureMasterConfigIncludes();
+
     private void EnsureMasterConfigIncludes()
     {
         var masterPath = Path.Combine(_locator.ConfigDirectory, "config.txt");
