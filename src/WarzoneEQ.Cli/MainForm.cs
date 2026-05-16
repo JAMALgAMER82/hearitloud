@@ -672,21 +672,20 @@ internal sealed class AdvancedTab : UserControl
         Dock = DockStyle.Fill;
         BackColor = Theme.BgRoot;
 
+        // v1.6.1: 2x2 card grid instead of a single flat TableLayoutPanel.
+        // Profile + Hardware on top, Toggles + Actions on bottom.
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 4,
-            RowCount = 7,
-            ColumnStyles =
-            {
-                new ColumnStyle(SizeType.Absolute, 110),
-                new ColumnStyle(SizeType.Percent, 50),
-                new ColumnStyle(SizeType.Absolute, 110),
-                new ColumnStyle(SizeType.Percent, 50),
-            },
-            Padding = new Padding(8),
+            ColumnCount = 2,
+            RowCount = 2,
+            BackColor = Theme.BgRoot,
+            Padding = new Padding(2),
         };
-        for (int i = 0; i < 7; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
 
         _mode = MakeCombo(Enum.GetNames<AudioMode>(), nameof(AudioMode.Competitive));
         _curve = MakeCombo(Enum.GetNames<FpsCurveName>(), nameof(FpsCurveName.Moderate));
@@ -734,53 +733,126 @@ internal sealed class AdvancedTab : UserControl
         _btnSavePreset.Click += (_, _) => SavePresetToFile();
         _btnLoadPreset.Click += (_, _) => LoadPresetFromFile();
 
-        layout.Controls.Add(MakeLabel("Mode:"),      0, 0);
-        layout.Controls.Add(_mode,                   1, 0);
-        layout.Controls.Add(MakeLabel("Curve:"),     2, 0);
-        layout.Controls.Add(_curve,                  3, 0);
+        layout.Controls.Add(BuildProfileCard(),  0, 0);
+        layout.Controls.Add(BuildHardwareCard(), 1, 0);
+        layout.Controls.Add(BuildTogglesCard(),  0, 1);
+        layout.Controls.Add(BuildActionsCard(),  1, 1);
+        Controls.Add(layout);
+    }
 
-        layout.Controls.Add(_intensityLabel,         0, 1);
-        layout.SetColumnSpan(_intensityLabel, 1);
-        layout.Controls.Add(_intensity,              1, 1);
-        layout.SetColumnSpan(_intensity, 3);
+    // ----- Card 1: PROFILE (Mode + Curve dropdowns + Intensity slider) -----
+    private Card BuildProfileCard()
+    {
+        var card = new Card { Title = "Profile", Subtitle = "Mode, curve, and FPS intensity.", Icon = "🎵", Margin = new Padding(8), Dock = DockStyle.Fill };
+        var grid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 3,
+            BackColor = Color.Transparent,
+        };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        layout.Controls.Add(MakeLabel("Headphone:"), 0, 2);
-        layout.Controls.Add(_headphone,              1, 2);
-        layout.Controls.Add(MakeLabel("DAC:"),       2, 2);
-        var dacRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
-        dacRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        dacRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 78));
-        dacRow.Controls.Add(_dac, 0, 0);
-        dacRow.Controls.Add(_btnAutofillHardware, 1, 0);
-        layout.Controls.Add(dacRow, 3, 2);
+        grid.Controls.Add(MakeLabel("Mode"),  0, 0); grid.Controls.Add(_mode,  1, 0);
+        grid.Controls.Add(MakeLabel("Curve"), 0, 1); grid.Controls.Add(_curve, 1, 1);
 
-        var checks1 = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Theme.BgRoot };
-        checks1.Controls.AddRange(new Control[] { _linearPhase, _adaptiveLoudness, _wider });
-        layout.Controls.Add(checks1, 0, 3);
-        layout.SetColumnSpan(checks1, 4);
+        var intensityRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = Color.Transparent };
+        intensityRow.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
+        intensityRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        intensityRow.Controls.Add(_intensityLabel, 0, 0);
+        intensityRow.Controls.Add(_intensity,      0, 1);
+        grid.Controls.Add(intensityRow, 0, 2);
+        grid.SetColumnSpan(intensityRow, 2);
 
-        var checks2 = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Theme.BgRoot };
-        checks2.Controls.AddRange(new Control[] { _compressor, _basic });
-        layout.Controls.Add(checks2, 0, 4);
-        layout.SetColumnSpan(checks2, 4);
+        card.Body.Controls.Add(grid);
+        return card;
+    }
 
-        var actionRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Height = 50 };
-        for (int i = 0; i < 3; i++) actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3F));
-        actionRow.Controls.Add(_btnPreview, 0, 0);
-        actionRow.Controls.Add(_btnApply, 1, 0);
-        actionRow.Controls.Add(_btnReset, 2, 0);
-        layout.Controls.Add(actionRow, 0, 5);
-        layout.SetColumnSpan(actionRow, 4);
+    // ----- Card 2: HARDWARE (Headphone + DAC overrides + Detect button) ----
+    private Card BuildHardwareCard()
+    {
+        var card = new Card { Title = "Hardware", Subtitle = "Override auto-detected gear.", Icon = "🎧", Margin = new Padding(8), Dock = DockStyle.Fill };
+        var grid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 3,
+            BackColor = Color.Transparent,
+        };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
 
-        var presetRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Height = 32 };
+        grid.Controls.Add(MakeLabel("Headphone"), 0, 0); grid.Controls.Add(_headphone, 1, 0);
+        grid.Controls.Add(MakeLabel("DAC"),       0, 1); grid.Controls.Add(_dac,       1, 1);
+
+        _btnAutofillHardware.Dock = DockStyle.Fill;
+        _btnAutofillHardware.Margin = new Padding(0, 4, 0, 0);
+        grid.Controls.Add(_btnAutofillHardware, 1, 2);
+
+        card.Body.Controls.Add(grid);
+        return card;
+    }
+
+    // ----- Card 3: TOGGLES (the five chain toggle checkboxes) --------------
+    private Card BuildTogglesCard()
+    {
+        var card = new Card { Title = "Toggles", Subtitle = "Chain on/off switches.", Icon = "🔘", Margin = new Padding(8), Dock = DockStyle.Fill };
+        var flow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            BackColor = Color.Transparent,
+        };
+        foreach (var c in new[] { _linearPhase, _adaptiveLoudness, _wider, _compressor, _basic })
+        {
+            c.Margin = new Padding(0, 4, 0, 4);
+            flow.Controls.Add(c);
+        }
+        card.Body.Controls.Add(flow);
+        return card;
+    }
+
+    // ----- Card 4: ACTIONS (Preview / Apply / Reset / Save / Load) ---------
+    private Card BuildActionsCard()
+    {
+        var card = new Card { Title = "Actions", Subtitle = "Preview, apply, share.", Icon = "▶", Margin = new Padding(8), Dock = DockStyle.Fill };
+        var rows = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 5,
+            BackColor = Color.Transparent,
+        };
+        for (int i = 0; i < 5; i++) rows.RowStyles.Add(new RowStyle(SizeType.Percent, 20));
+
+        foreach (var b in new[] { _btnApply, _btnPreview, _btnReset })
+        {
+            b.Dock = DockStyle.Fill;
+            b.Margin = new Padding(0, 2, 0, 2);
+        }
+        rows.Controls.Add(_btnApply,   0, 0);
+        rows.Controls.Add(_btnPreview, 0, 1);
+        rows.Controls.Add(_btnReset,   0, 2);
+
+        var presetRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Color.Transparent };
         presetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         presetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        _btnSavePreset.Dock = DockStyle.Fill; _btnSavePreset.Margin = new Padding(0, 2, 2, 2);
+        _btnLoadPreset.Dock = DockStyle.Fill; _btnLoadPreset.Margin = new Padding(2, 2, 0, 2);
         presetRow.Controls.Add(_btnSavePreset, 0, 0);
         presetRow.Controls.Add(_btnLoadPreset, 1, 0);
-        layout.Controls.Add(presetRow, 0, 6);
-        layout.SetColumnSpan(presetRow, 4);
+        rows.Controls.Add(presetRow, 0, 3);
 
-        Controls.Add(layout);
+        card.Body.Controls.Add(rows);
+        return card;
     }
 
     public void LoadFrom(WorkflowOptions opts)
@@ -1015,20 +1087,59 @@ internal sealed class EqEditorTab : UserControl
         btnClear.Click += (_, _) => _graph.Clear();
         btnSnap.Click  += (_, _) => SnapToAutoEq();
 
-        var actionRow = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 50, ColumnCount = 5 };
-        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
-        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
-        actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
-        actionRow.Controls.Add(_filterCountLabel, 0, 0);
-        actionRow.Controls.Add(_headphoneBox, 1, 0);
-        actionRow.Controls.Add(btnSnap, 2, 0);
-        actionRow.Controls.Add(btnClear, 3, 0);
-        actionRow.Controls.Add(btnApply, 4, 0);
+        // v1.6.1: wrap graph + action row into two stacked Cards (Frequency
+        // Response on top, Headphone Snap + Actions on bottom).
+        var rootGrid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Theme.BgRoot,
+            Padding = new Padding(2),
+        };
+        rootGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        rootGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 130));
 
-        Controls.Add(_graph);
-        Controls.Add(actionRow);
+        var graphCard = new Card
+        {
+            Title = "Frequency Response",
+            Subtitle = "Click empty space → add point. Drag → tune. Right-click → delete. Wheel → Q.",
+            Icon = "📈",
+            Margin = new Padding(6),
+            Dock = DockStyle.Fill,
+        };
+        graphCard.Body.Controls.Add(_graph);
+
+        var actionCard = new Card
+        {
+            Title = "Headphone Snap + Actions",
+            Subtitle = "Pull a per-headphone curve from AutoEQ, then sculpt and Apply.",
+            Icon = "🎚",
+            Margin = new Padding(6),
+            Dock = DockStyle.Fill,
+        };
+        var actionGrid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 5,
+            RowCount = 1,
+            BackColor = Color.Transparent,
+        };
+        actionGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        actionGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        actionGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+        actionGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
+        actionGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+        actionGrid.Controls.Add(_filterCountLabel, 0, 0);
+        actionGrid.Controls.Add(_headphoneBox, 1, 0);
+        actionGrid.Controls.Add(btnSnap, 2, 0);
+        actionGrid.Controls.Add(btnClear, 3, 0);
+        actionGrid.Controls.Add(btnApply, 4, 0);
+        actionCard.Body.Controls.Add(actionGrid);
+
+        rootGrid.Controls.Add(graphCard, 0, 0);
+        rootGrid.Controls.Add(actionCard, 0, 1);
+        Controls.Add(rootGrid);
     }
 
     private void SnapToAutoEq()
