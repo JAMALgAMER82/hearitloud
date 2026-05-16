@@ -2,7 +2,7 @@
 ; Bundles HearItLoud.exe + bootstraps Equalizer APO + runs --auto.
 
 #define MyAppName        "Hear It Loud"
-#define MyAppVersion     "1.5.1"
+#define MyAppVersion     "1.5.2"
 #define MyAppPublisher   "MasterMind George"
 #define MyAppURL         "https://github.com/yourname/hearitloud"
 #define MyAppExeName     "HearItLoud.exe"

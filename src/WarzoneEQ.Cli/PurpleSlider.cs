@@ -41,7 +41,15 @@ public sealed class PurpleSlider : Control
     public PurpleSlider()
     {
         DoubleBuffered = true;
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        // SupportsTransparentBackColor must be enabled BEFORE the BackColor
+        // setter is called — otherwise Color.Transparent throws ArgumentException
+        // ("Control does not support transparent background colors") and the
+        // form crashes on construction. This was the v1.5.0 GUI startup bug.
+        SetStyle(ControlStyles.AllPaintingInWmPaint
+               | ControlStyles.UserPaint
+               | ControlStyles.OptimizedDoubleBuffer
+               | ControlStyles.ResizeRedraw
+               | ControlStyles.SupportsTransparentBackColor, true);
         BackColor = Color.Transparent;
         Height = 28;
         Cursor = Cursors.Hand;
