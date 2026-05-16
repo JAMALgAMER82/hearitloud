@@ -2,7 +2,7 @@
 ; Bundles HearItLoud.exe + bootstraps Equalizer APO + runs --auto.
 
 #define MyAppName        "Hear It Loud"
-#define MyAppVersion     "1.10.3"
+#define MyAppVersion     "1.10.4"
 #define MyAppPublisher   "MasterMind George"
 #define MyAppURL         "https://github.com/yourname/hearitloud"
 #define MyAppExeName     "HearItLoud.exe"
@@ -111,16 +111,21 @@ procedure CheckEqApoInstalled();
 var
   InstallPath: string;
 begin
+  // v1.10.4: never abort the install for a missing EQ APO. The app installs
+  // fine without it — the in-app Diagnose feature detects missing EQ APO and
+  // shows clear "click here to install" instructions. Aborting here produced
+  // the cryptic "Internal error: Operation aborted" dialog that confused users.
   if not RegQueryStringValue(HKLM, 'SOFTWARE\EqualizerAPO', 'InstallPath', InstallPath) then
   begin
     MsgBox(
-      'Equalizer APO could not be installed automatically.' + #13#10 + #13#10 +
-      'This usually means your network blocked the download. Please:' + #13#10 +
-      '  1. Download Equalizer APO yourself from https://equalizerapo.com' + #13#10 +
+      'Heads up: Equalizer APO could not be installed automatically.' + #13#10 + #13#10 +
+      'Hear It Loud will install anyway. To enable footstep audio:' + #13#10 +
+      '  1. Download Equalizer APO from https://equalizerapo.com' + #13#10 +
       '  2. Install it and reboot' + #13#10 +
-      '  3. Run "HearItLoud.exe --auto" from C:\Program Files\Hear It Loud',
-      mbCriticalError, MB_OK);
-    Abort();
+      '  3. Open Hear It Loud and click "Diagnose && Auto-Fix"' + #13#10 + #13#10 +
+      'Or click "Diagnose && Auto-Fix" in the app for guided help.',
+      mbInformation, MB_OK);
+    // No Abort() — installation continues.
   end;
 end;
 

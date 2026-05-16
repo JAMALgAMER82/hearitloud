@@ -37,10 +37,15 @@ public sealed class Card : Panel
         BackColor = Theme.CardFill;
         Padding = new Padding(0);
 
+        // v1.10.4: Body MUST be transparent so the Card's painted title strip
+        // (icon + title + subtitle drawn in OnPaint on the Card's surface)
+        // shows through. Card itself is opaque (the SetParent fix from v1.10.2);
+        // Body's transparency is fine because Body's parent is now non-transparent.
+        // Without this, v1.10.3 rendered cards as empty rectangles.
         _body = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Theme.CardFill,
+            BackColor = Color.Transparent,
             Padding = new Padding(16, 50, 16, 14),
         };
         Controls.Add(_body);
