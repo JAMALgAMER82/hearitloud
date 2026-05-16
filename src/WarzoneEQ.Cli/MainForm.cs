@@ -368,44 +368,67 @@ public sealed class MainForm : Form
 
     private Button[] BuildEasyTab(TabPage tab)
     {
+        // 4×2 grid of Cards. Each card has its own header (icon + title +
+        // subtitle) painted by Card.cs, with the action button sitting in
+        // the card's Body. The visual rhythm matches the reference design
+        // — distinct surfaces with rounded corners, breathing room between.
         var grid = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
             RowCount = 4,
             BackColor = BgDark,
+            Padding = new Padding(2),
         };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
 
-        var btnAuto      = MakeBigButton("⚡  Auto Setup\n(recommended for first run)", Theme.BtnSafe);
-        var btnFootstep  = MakeBigButton("👣  Footstep Priority\n(max competitive clarity)", Theme.BtnAggressive);
-        var btnDiagnose  = MakeBigButton("🔧  Diagnose && Auto-Fix\n(if anything sounds wrong)", Theme.BtnInfo);
-        var btnDetect    = MakeBigButton("🎧  Detect My Hardware", Theme.BtnNeutral);
-        var btnSettings  = MakeBigButton("🔊  Open Windows Sound Settings", Theme.BtnNeutral);
-        var btnPlugins   = MakeBigButton("🧩  Get Optional Plugins\n(for the full-quality chain)", Theme.BtnNeutral);
-        var btnCheatSheet = MakeBigButton("📋  Show Audio Cheat Sheet\n(in-game + Windows settings to use)", Theme.BtnCheat);
+        var cards = new[]
+        {
+            BuildEasyCard("⚡", "Auto Setup", "Recommended for first run.",          "Run Auto Setup", Theme.BtnSafe,       w => Workflows.Auto(w, new WorkflowOptions())),
+            BuildEasyCard("👣", "Footstep Priority", "Max competitive clarity.",     "Run",            Theme.BtnAggressive, w => Workflows.Auto(w, new WorkflowOptions(FootstepPriority: true))),
+            BuildEasyCard("🔧", "Diagnose && Auto-Fix", "If anything sounds wrong.", "Run",            Theme.BtnInfo,       w => Workflows.Diagnose(w, applyFix: true)),
+            BuildEasyCard("🎧", "Detect My Hardware", "List headphones + DAC.",      "Detect",         Theme.BtnNeutral,    w => Workflows.Detect(w, basic: false)),
+            BuildEasyCard("🔊", "Sound Settings",     "Open Windows audio panel.",   "Open",           Theme.BtnNeutral,    null, OpenSoundSettings),
+            BuildEasyCard("🧩", "Optional Plugins",   "Full-quality chain helpers.", "Install / Info", Theme.BtnNeutral,    null, OpenPluginGuide),
+            BuildEasyCard("📋", "Audio Cheat Sheet",  "In-game + Windows settings.", "Show",           Theme.BtnCheat,      null, ShowCheatSheet),
+        };
 
-        grid.Controls.Add(btnAuto, 0, 0);
-        grid.Controls.Add(btnFootstep, 1, 0);
-        grid.Controls.Add(btnDiagnose, 0, 1);
-        grid.Controls.Add(btnDetect, 1, 1);
-        grid.Controls.Add(btnSettings, 0, 2);
-        grid.Controls.Add(btnPlugins, 1, 2);
-        grid.Controls.Add(btnCheatSheet, 0, 3);
-        grid.SetColumnSpan(btnCheatSheet, 2);
+        for (int i = 0; i < cards.Length; i++)
+        {
+            grid.Controls.Add(cards[i].Card, i % 2, i / 2);
+        }
         tab.Controls.Add(grid);
+        return cards.Select(c => c.Button).ToArray();
+    }
 
-        btnAuto.Click       += (_, _) => Run("Auto Setup", w => Workflows.Auto(w, new WorkflowOptions()));
-        btnFootstep.Click   += (_, _) => Run("Footstep Priority", w => Workflows.Auto(w, new WorkflowOptions(FootstepPriority: true)));
-        btnDiagnose.Click   += (_, _) => Run("Diagnose & Fix", w => Workflows.Diagnose(w, applyFix: true));
-        btnDetect.Click     += (_, _) => Run("Detect Hardware", w => Workflows.Detect(w, basic: false));
-        btnSettings.Click   += (_, _) => OpenSoundSettings();
-        btnPlugins.Click    += (_, _) => OpenPluginGuide();
-        btnCheatSheet.Click += (_, _) => ShowCheatSheet();
-
-        return new[] { btnAuto, btnFootstep, btnDiagnose, btnDetect, btnSettings, btnPlugins, btnCheatSheet };
+    // Builds one card for the Easy Mode tab. `work` runs in the background
+    // with live log streaming; `directAction` runs synchronously on the UI
+    // thread (used for "open the Windows sound panel" type actions where
+    // there's nothing to wait for).
+    private (Card Card, Button Button) BuildEasyCard(
+        string icon, string title, string subtitle, string buttonText, Color accent,
+        Func<Action<string>, int>? work, Action? directAction = null)
+    {
+        var card = new Card
+        {
+            Title = title,
+            Subtitle = subtitle,
+            Icon = icon,
+            Margin = new Padding(8),
+            Dock = DockStyle.Fill,
+        };
+        var btn = MakeBigButton(buttonText, accent);
+        btn.Dock = DockStyle.Fill;
+        btn.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+        card.Body.Controls.Add(btn);
+        btn.Click += (_, _) =>
+        {
+            if (work is not null) Run(title, work);
+            else directAction?.Invoke();
+        };
+        return (card, btn);
     }
 
     private void ShowCheatSheet()

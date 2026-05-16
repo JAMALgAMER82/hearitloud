@@ -8,45 +8,54 @@ namespace WarzoneEQ.ConfigGenerator.Tests.Profiles;
 public class FootstepHunterProfileTests
 {
     [Fact]
-    public void Generates_header_and_aggressive_high_pass()
+    public void Generates_header_and_tighter_150_Hz_high_pass()
     {
         var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
         output.Should().Contain("FootstepHunter mode");
-        output.Should().Contain("Filter: ON HP Fc 120 Hz");
+        output.Should().Contain("Filter: ON HP Fc 150 Hz");
     }
 
     [Fact]
-    public void Ducks_front_center_more_aggressively_than_competitive()
+    public void Notches_both_low_mid_rumble_and_gunshot_band_on_LR()
+    {
+        var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
+        output.Should().MatchRegex(@"Channel: L R[\s\S]*?Filter: ON PK Fc 300 Hz Gain -4\.0 dB Q 5");
+        output.Should().MatchRegex(@"Channel: L R[\s\S]*?Filter: ON PK Fc 1200 Hz Gain -5\.0 dB Q 5");
+    }
+
+    [Fact]
+    public void Pushes_FL_FR_harder_at_minus_5_dB()
+    {
+        var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
+        output.Should().Contain("Channel: FL FR");
+        output.Should().Contain("Preamp: -5.0 dB");
+    }
+
+    [Fact]
+    public void Ducks_FC_at_minus_12_dB_with_22_dB_threshold_10_to_1_ratio()
     {
         var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
         output.Should().Contain("Channel: FC");
-        output.Should().Contain("Preamp: -10.0 dB");
-        output.Should().Contain("Plugin: \"TDR Nova\" -bandA-thresh -24.0");
-        output.Should().Contain("Filter: ON PK Fc 1200 Hz Gain -3.0 dB Q 4");
+        output.Should().Contain("Preamp: -12.0 dB");
+        output.Should().Contain("Plugin: \"TDR Nova\" -bandA-thresh -22.0 -bandA-ratio 10.0");
     }
 
     [Fact]
-    public void Boosts_rear_and_side_channels_for_off_axis_footsteps()
+    public void Boosts_rear_and_side_channels_with_high_shelf_above_2_kHz()
     {
         var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
         output.Should().Contain("Channel: BL BR SL SR");
-        output.Should().Contain("Preamp: 5.0 dB");
-        output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 3000 -bandB-gain +7.0 -bandB-Q 2.0");
+        output.Should().Contain("Preamp: 6.0 dB");
+        output.Should().Contain("Filter: ON HS Fc 2000 Hz Gain +4.0 dB");
     }
 
     [Fact]
-    public void Stacks_a_second_transient_shaper_at_5_kHz_for_hard_surface_scuffs()
+    public void Stacks_three_transient_shapers_for_grass_concrete_and_metal_footsteps()
     {
         var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
-        output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 3000");
-        output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 5000 -bandB-gain +5.0");
-    }
-
-    [Fact]
-    public void Notches_gunshot_band_on_LR_channels()
-    {
-        var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
-        output.Should().MatchRegex(@"Channel: L R[\s\S]*?Filter: ON PK Fc 1200 Hz Gain -3\.0 dB Q 4");
+        output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 3000 -bandB-gain +8.0");
+        output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 5000 -bandB-gain +6.0");
+        output.Should().Contain("Plugin: \"TDR Nova\" -bandB-freq 6500 -bandB-gain +4.0");
     }
 
     [Fact]
@@ -85,9 +94,10 @@ public class FootstepHunterProfileTests
         output.Should().NotContain("TDR Nova");
         output.Should().NotContain("LoudMax");
         output.Should().NotContain("ReaXcomp");
-        output.Should().Contain("Filter: ON HP Fc 120 Hz");
-        output.Should().Contain("Preamp: 5.0 dB");
-        output.Should().Contain("Preamp: -10.0 dB");
+        output.Should().Contain("Filter: ON HP Fc 150 Hz");
+        output.Should().Contain("Filter: ON HS Fc 2000 Hz Gain +4.0 dB");
+        output.Should().Contain("Preamp: 6.0 dB");
+        output.Should().Contain("Preamp: -12.0 dB");
     }
 
     [Fact]

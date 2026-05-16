@@ -10,6 +10,7 @@ using WarzoneEQ.WindowsIntegration.Diagnostics;
 using WarzoneEQ.WindowsIntegration.EqApo;
 using WarzoneEQ.WindowsIntegration.Files;
 using WarzoneEQ.WindowsIntegration.LoudnessEq;
+using WarzoneEQ.WindowsIntegration.Plugins;
 
 namespace WarzoneEQ.Cli;
 
@@ -178,6 +179,46 @@ public static class Workflows
         AudioMode.Competitive => primary with { Mode = AudioMode.Cinematic },
         _ => primary with { Mode = AudioMode.Cinematic },
     };
+
+    // Auto-installs all three optional VST/HRIR plugins (TDR Nova, LoudMax,
+    // HeSuVi) by downloading from the publishers' official URLs and running
+    // their respective installers/zips silently. Called by the main installer
+    // post-EQ-APO so end users never see a second installer UI.
+    //
+    // Best-effort: a publisher URL change or network failure logs the issue
+    // but does NOT fail the parent install. The diagnose tool can recover
+    // anything missing on next launch.
+    [SupportedOSPlatform("windows")]
+    public static int InstallOptionalPlugins(Action<string> write)
+    {
+        var locator = new RegistryEqApoLocator();
+        if (!locator.IsInstalled)
+        {
+            write("[plugins] EQ APO not present — skipping plugin install.");
+            return 0;
+        }
+        var installer = new PluginInstaller(locator);
+        int ok = 0, fail = 0;
+        foreach (var p in new[] { OptionalPlugin.LoudMax, OptionalPlugin.TdrNova, OptionalPlugin.HeSuVi })
+        {
+            try
+            {
+                var task = installer.InstallAsync(p, write);
+                task.GetAwaiter().GetResult();
+                if (task.Result) ok++; else fail++;
+            }
+            catch (Exception ex)
+            {
+                fail++;
+                write($"[plugins] {p}: {ex.Message}");
+            }
+        }
+        write("");
+        write($"[plugins] {ok} installed, {fail} failed. The app falls back to basic mode for any that failed; Diagnose & Auto-Fix can re-attempt later.");
+        // Always return 0 so the installer doesn't abort the whole setup on a
+        // plugin-download failure — the core app works without them.
+        return 0;
+    }
 
     public static int Print(Action<string> write, ProfileInput input)
     {

@@ -64,6 +64,7 @@ var diagnoseOption        = new Option<bool>("--diagnose", "Run system checks.")
 var fixOption             = new Option<bool>("--fix", "With --diagnose: apply safe auto-fixes.");
 var selfTestOption        = new Option<bool>("--self-test", "Generate every profile/curve/basic combination and verify.");
 var uninstallCleanupOption = new Option<bool>("--uninstall-cleanup", "Remove the Hear It Loud block from EQ APO master config (called by the uninstaller).");
+var installPluginsOption = new Option<bool>("--install-plugins", "Download + install the optional VST/HRIR plugins (TDR Nova, LoudMax, HeSuVi). Called by the main installer post-setup.");
 var guiOption             = new Option<bool>("--gui", "Force the GUI to open (same as launching with no args).");
 
 var root = new RootCommand("Hear It Loud — by MasterMind George. Generate, detect, and install Equalizer APO configs for Call of Duty Warzone.")
@@ -72,7 +73,7 @@ var root = new RootCommand("Hear It Loud — by MasterMind George. Generate, det
     linearPhaseOption, adaptiveLoudnessOption, widerOption, noCompressorOption,
     detectOption, installOption, autoOption, basicOption,
     footstepPriorityOption, diagnoseOption, fixOption, selfTestOption,
-    uninstallCleanupOption, guiOption,
+    uninstallCleanupOption, installPluginsOption, guiOption,
 };
 
 root.SetHandler(context =>
@@ -96,6 +97,7 @@ root.SetHandler(context =>
     if (p.GetValueForOption(selfTestOption))           { Environment.Exit(Workflows.RunSelfTest(write)); return; }
     if (p.GetValueForOption(diagnoseOption))           { Environment.Exit(Workflows.Diagnose(write, p.GetValueForOption(fixOption))); return; }
     if (p.GetValueForOption(uninstallCleanupOption))   { Environment.Exit(Workflows.UninstallCleanup(write)); return; }
+    if (p.GetValueForOption(installPluginsOption))     { Environment.Exit(Workflows.InstallOptionalPlugins(write)); return; }
 
     var opts = new WorkflowOptions(
         Mode: p.GetValueForOption(modeOption),

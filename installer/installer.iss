@@ -2,7 +2,7 @@
 ; Bundles HearItLoud.exe + bootstraps Equalizer APO + runs --auto.
 
 #define MyAppName        "Hear It Loud"
-#define MyAppVersion     "1.5.2"
+#define MyAppVersion     "1.6.0"
 #define MyAppPublisher   "MasterMind George"
 #define MyAppURL         "https://github.com/yourname/hearitloud"
 #define MyAppExeName     "HearItLoud.exe"
@@ -69,7 +69,17 @@ Filename: "powershell.exe"; \
   Flags: runhidden waituntilterminated; \
   AfterInstall: CheckEqApoInstalled
 
-; Step 2: run --auto so the user has a working config the moment they reboot
+; Step 2: auto-install the optional VST/HRIR plugins (TDR Nova, LoudMax,
+; HeSuVi). Downloaded from publisher URLs at install time, dropped straight
+; into EQ APO's VSTPlugins / HeSuVi config dirs. Best-effort: any download
+; failure is logged but does not abort install (the app's basic chain works
+; without them, and Diagnose & Auto-Fix can retry later).
+Filename: "{app}\{#MyAppExeName}"; \
+  Parameters: "--install-plugins"; \
+  StatusMsg: "Installing optional VST plugins (TDR Nova, LoudMax, HeSuVi)..."; \
+  Flags: runhidden waituntilterminated
+
+; Step 3: run --auto so the user has a working config the moment they reboot
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\run-autotune.ps1"" -ExePath ""{app}\{#MyAppExeName}"""; \
   StatusMsg: "Detecting hardware and installing Hear It Loud config..."; \

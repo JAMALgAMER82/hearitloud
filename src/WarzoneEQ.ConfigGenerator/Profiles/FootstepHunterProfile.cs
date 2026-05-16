@@ -24,45 +24,54 @@ public sealed class FootstepHunterProfile : IProfileGenerator
         sb.AppendLine();
         sb.AppendLine("Stage: pre-mix");
 
-        // L+R get HP @ 120 plus a narrow notch at 1.2 kHz where Warzone's
-        // gunshots peak — reduces gun bleed into the 2-5 kHz footstep band
-        // without touching voice intelligibility (vowels live around 700 Hz).
+        // L+R: tighter HP (150 Hz kills more low rumble that masks footsteps),
+        // two surgical notches at the gunshot fundamental (1.2 kHz) and the
+        // explosion/wind low-mid mush (300 Hz). Both narrow Q=5 so voice
+        // formants (700 Hz vowels, 2 kHz sibilants) are untouched.
         EmitStage(sb, new ChannelStage(
             new[] { Channel.L, Channel.R },
             Filters: new[]
             {
-                Filter.HighPass(120),
-                Filter.Peaking(1200, gainDb: -3, q: 4),
+                Filter.HighPass(150),
+                Filter.Peaking(300, gainDb: -4, q: 5),
+                Filter.Peaking(1200, gainDb: -5, q: 5),
             }));
 
+        // FL/FR pushed harder (-5 dB instead of -3): in 7.1 mixes the front
+        // pair carries most of the gunfire-direction cues. We want the user's
+        // attention pulled toward the lateral channels where footsteps live.
         EmitStage(sb, new ChannelStage(
             new[] { Channel.FL, Channel.FR },
-            PreampDb: -3));
+            PreampDb: -5));
 
-        // FC gets aggressive ducking — gunshots come dead-center in 7.1 mixes,
-        // and we'd rather lose a few dB of dialog than have rifles mask the
-        // footstep band. Threshold -24 dB / ratio 8:1 is intentionally harsh.
+        // FC gets the heaviest ducking — dialog and gunshots both live dead-
+        // center in 7.1 mixes. Threshold -22 dB / ratio 10:1 is intentionally
+        // brutal: it costs some dialog intelligibility to make footsteps
+        // pop through cleanly. Plus the gunshot notch on the FC channel too.
         EmitStage(sb, new ChannelStage(
             new[] { Channel.FC },
-            PreampDb: -10,
-            Filters: new[] { Filter.Peaking(1200, gainDb: -3, q: 4) },
+            PreampDb: -12,
+            Filters: new[] { Filter.Peaking(1200, gainDb: -5, q: 5) },
             Plugins: input.EnableVstPlugins
-                ? new Plugin[] { TdrNova.SpectralDucker(thresholdDb: -24, ratio: 8, freqLow: 200, freqHigh: 5000) }
+                ? new Plugin[] { TdrNova.SpectralDucker(thresholdDb: -22, ratio: 10, freqLow: 200, freqHigh: 5000) }
                 : null));
 
-        // Rears/sides: where most footstep cues actually live. Two transient
-        // shapers stacked — 3 kHz catches grass/dirt steps, 5 kHz catches
-        // hard-surface scuffs (concrete, metal grates) which have more HF
-        // content. Both fire only when the input is transient (TDR Nova's
-        // bandwise dynamics handle the gating automatically).
+        // Rears/sides: every footstep cue we can extract lives here. Stack
+        // THREE transient shapers across the footstep frequency range so
+        // every surface type gets sharpened — grass/dirt (3 kHz), hard-surface
+        // scuffs (5 kHz), metallic snap (6.5 kHz). Plus a broad high-shelf
+        // boost above 2 kHz to push the whole footstep band forward on the
+        // lateral channels.
         EmitStage(sb, new ChannelStage(
             new[] { Channel.BL, Channel.BR, Channel.SL, Channel.SR },
-            PreampDb: 5,
+            PreampDb: 6,
+            Filters: new[] { Filter.HighShelf(2000, gainDb: 4) },
             Plugins: input.EnableVstPlugins
                 ? new Plugin[]
                 {
-                    TdrNova.TransientShaper(freqHz: 3000, gainDb: 7, q: 2.0),
-                    TdrNova.TransientShaper(freqHz: 5000, gainDb: 5, q: 2.0),
+                    TdrNova.TransientShaper(freqHz: 3000, gainDb: 8, q: 2.0),
+                    TdrNova.TransientShaper(freqHz: 5000, gainDb: 6, q: 2.0),
+                    TdrNova.TransientShaper(freqHz: 6500, gainDb: 4, q: 2.5),
                 }
                 : null));
 
