@@ -439,6 +439,8 @@ public sealed class MainForm : Form
         foreach (var line in AudioCheatSheet.Split('\n')) Log(line.TrimEnd('\r'));
     }
 
+    internal void TriggerFootstepTest() => PlayFootstepTest();
+
     private void PlayFootstepTest()
     {
         ClearLog();
@@ -934,12 +936,29 @@ internal sealed class AdvancedTab : UserControl
         AddSlider(sliderGrid, 2, 2, "Comp Threshold", -60, -20, -38, " dB", out _slCompThresh, out _lblCompThresh);
         AddSlider(sliderGrid, 0, 3, "Limiter Ceiling", -30,   0,  -5, " dB (×0.1)", out _slLimCeil, out _lblLimCeil);
 
-        var resetBtn = MainForm.MakeBigButton("Reset to FootstepHunter defaults", Theme.BtnNeutral);
+        // Two side-by-side buttons in the bottom-right slot:
+        //   Reset → FootstepHunter defaults
+        //   🚀 Auto-Tune → maximum footstep emphasis preset + plays test signal
+        var bottomRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Color.Transparent };
+        bottomRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        bottomRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+
+        var resetBtn = MainForm.MakeBigButton("Reset to FH Defaults", Theme.BtnNeutral);
         resetBtn.Dock = DockStyle.Fill;
+        resetBtn.Margin = new Padding(0, 0, 4, 0);
         resetBtn.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
         resetBtn.Click += (_, _) => ResetPluginOverridesToDefaults();
-        sliderGrid.Controls.Add(resetBtn, 2, 3);
-        sliderGrid.SetColumnSpan(resetBtn, 2);
+
+        var autoTuneBtn = MainForm.MakeBigButton("🚀  Auto-Tune to Max Clarity", Theme.BtnAggressive);
+        autoTuneBtn.Dock = DockStyle.Fill;
+        autoTuneBtn.Margin = new Padding(4, 0, 0, 0);
+        autoTuneBtn.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        autoTuneBtn.Click += (_, _) => AutoTuneToMaxClarity();
+
+        bottomRow.Controls.Add(resetBtn, 0, 0);
+        bottomRow.Controls.Add(autoTuneBtn, 1, 0);
+        sliderGrid.Controls.Add(bottomRow, 2, 3);
+        sliderGrid.SetColumnSpan(bottomRow, 2);
 
         root.Controls.Add(sliderGrid, 0, 1);
         card.Body.Controls.Add(root);
@@ -985,6 +1004,52 @@ internal sealed class AdvancedTab : UserControl
         if (_debounceTimer is null) return;
         _debounceTimer.Stop();
         _debounceTimer.Start();
+    }
+
+    // One-button "fix everything to max footstep clarity" — pushes every
+    // slider to its most-aggressive setting, forces Mode = FootstepHunter,
+    // lets the debounce timer auto-apply, then plays the test signal so the
+    // user immediately hears the result. Equivalent of a "do everything
+    // possible" preset for users who don't want to hand-tune.
+    private void AutoTuneToMaxClarity()
+    {
+        // Snap mode to FootstepHunter — overrides only take effect there.
+        if (_mode is not null) _mode.SelectedItem = nameof(AudioMode.FootstepHunter);
+
+        // Most-aggressive values within safe ranges. These are intentionally
+        // beyond the FootstepHunter defaults — costs more dialog
+        // intelligibility in exchange for maximum footstep separation.
+        if (_slFcThresh   is not null) _slFcThresh.Value   = -16; // very deep duck (was -22)
+        if (_slFcRatio    is not null) _slFcRatio.Value    =  16; // 16:1 brutal ratio (was 10)
+        if (_slShaper3k   is not null) _slShaper3k.Value   =  12; // max grass/dirt
+        if (_slShaper5k   is not null) _slShaper5k.Value   =  12; // max concrete scuffs
+        if (_slShaper65k  is not null) _slShaper65k.Value  =   8; // max metal snap
+        if (_slCompThresh is not null) _slCompThresh.Value = -50; // pulls quieter footsteps up
+        if (_slLimCeil    is not null) _slLimCeil.Value    =  -3; // -0.3 dB ceiling (loudest safe)
+        if (_enFcDuck       is not null) _enFcDuck.Checked       = true;
+        if (_enRearShapers  is not null) _enRearShapers.Checked  = true;
+        if (_enFootstepComp is not null) _enFootstepComp.Checked = true;
+        if (_enLimiter      is not null) _enLimiter.Checked      = true;
+
+        _owner.Log("[auto-tune] MAX FOOTSTEP CLARITY preset applied:");
+        _owner.Log("            FC duck   -16 dB / 16:1   (brutal — kills dialog)");
+        _owner.Log("            Shapers   3k +12 / 5k +12 / 6.5k +8");
+        _owner.Log("            Comp      -50 dB threshold");
+        _owner.Log("            Limiter   -0.3 dB ceiling");
+        _owner.Log("");
+        _owner.Log("Auto-applying... will play test signal in ~1.5 s.");
+
+        // The slider/checkbox changes already kicked the 350 ms debounce.
+        // After Apply finishes, fire the test signal so the user hears the
+        // chain through the synthetic footstep hits without a second click.
+        var playTimer = new System.Windows.Forms.Timer { Interval = 1500 };
+        playTimer.Tick += (_, _) =>
+        {
+            playTimer.Stop();
+            playTimer.Dispose();
+            _owner.TriggerFootstepTest();
+        };
+        playTimer.Start();
     }
 
     private void ResetPluginOverridesToDefaults()
