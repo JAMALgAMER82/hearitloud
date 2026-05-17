@@ -52,4 +52,12 @@ public class UserCustomProfileTests
         output.Should().Contain(@"Include: warzone\hrir\hesuvi-active.wav");
         output.Should().Contain(@"Include: warzone\headphone-correction\HD600.txt");
     }
+
+    [Fact]
+    public void Wraps_user_chain_in_per_app_conditional()
+    {
+        var output = new UserCustomProfile().Generate(new ProfileInput(AudioMode.UserCustom));
+        output.Should().Contain("If(app:cod.exe");
+        output.TrimEnd().Should().EndWith("EndIf");
+    }
 }

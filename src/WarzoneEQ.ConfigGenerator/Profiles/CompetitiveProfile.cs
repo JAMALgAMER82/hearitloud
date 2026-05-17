@@ -16,6 +16,12 @@ public sealed class CompetitiveProfile : IProfileGenerator
         if (input.DacEndpoint.DeviceDirective is { } directive)
             sb.AppendLine(directive);
 
+        // v1.10.7: self-protect at the file level. Even if the master config.txt
+        // ends up with a non-conditional Include for some reason, this If/EndIf
+        // wrapper makes sure the chain only fires for Call of Duty processes
+        // and that Spotify / Discord / browsers pass through untouched.
+        sb.AppendLine(WarzoneProcesses.IfLine);
+
         sb.AppendLine();
         sb.AppendLine("Stage: pre-mix");
 
@@ -64,6 +70,7 @@ public sealed class CompetitiveProfile : IProfileGenerator
         if (input.EnableVstPlugins)
             sb.AppendLine(LoudMax.Limiter(-1.0).ToConfigLine());
 
+        sb.AppendLine(WarzoneProcesses.EndIfLine);
         return sb.ToString();
     }
 

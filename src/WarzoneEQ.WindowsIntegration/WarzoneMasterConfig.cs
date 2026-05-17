@@ -1,4 +1,5 @@
 using System.Text;
+using WarzoneEQ.ConfigGenerator;
 
 namespace WarzoneEQ.WindowsIntegration;
 
@@ -11,28 +12,21 @@ public static class WarzoneMasterConfig
     public const string BlockEndMarker   = "# <<< hear-it-loud-block-end";
     public const string IncludeLine      = @"Include: warzone\current.txt";
 
-    // Every Warzone / Call of Duty executable we want our chain to apply to.
-    // Discord, Spotify, YouTube, browsers — anything not on this list — get
-    // EQ APO's identity passthrough.
-    public static readonly IReadOnlyList<string> WarzoneProcesses = new[]
-    {
-        "cod.exe",
-        "ModernWarfare.exe",
-        "Warzone.exe",
-        "cod_modernwarfare.exe",
-        "BlackOps6.exe",
-    };
+    // v1.10.7: process list moved to WarzoneEQ.ConfigGenerator.WarzoneProcesses
+    // so the profile generators (which wrap their own output in If/EndIf for
+    // belt-and-suspenders) share a single source of truth with the master
+    // config block. Re-exposed here so existing tests keep working.
+    public static IReadOnlyList<string> WarzoneProcesses => ConfigGenerator.WarzoneProcesses.Names;
 
     public static string BuildBlock()
     {
-        var clause = string.Join(";", WarzoneProcesses.Select(p => $"app:{p}"));
         var sb = new StringBuilder();
         sb.AppendLine(BlockStartMarker);
         sb.AppendLine("# Apply Hear It Loud EQ chain only to Call of Duty processes.");
         sb.AppendLine("# Discord, Spotify, YouTube etc. pass through untouched.");
-        sb.AppendLine($"If({clause})");
+        sb.AppendLine(ConfigGenerator.WarzoneProcesses.IfLine);
         sb.AppendLine(IncludeLine);
-        sb.AppendLine("EndIf");
+        sb.AppendLine(ConfigGenerator.WarzoneProcesses.EndIfLine);
         sb.Append(BlockEndMarker);
         return sb.ToString();
     }

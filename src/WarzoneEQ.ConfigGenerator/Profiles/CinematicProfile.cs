@@ -16,6 +16,9 @@ public sealed class CinematicProfile : IProfileGenerator
         if (input.DacEndpoint.DeviceDirective is { } directive)
             sb.AppendLine(directive);
 
+        // v1.10.7: see CompetitiveProfile for the rationale.
+        sb.AppendLine(WarzoneProcesses.IfLine);
+
         sb.AppendLine();
         sb.AppendLine("Stage: pre-mix");
 
@@ -69,6 +72,7 @@ public sealed class CinematicProfile : IProfileGenerator
         if (input.EnableVstPlugins)
             sb.AppendLine(LoudMax.Limiter(-1.0).ToConfigLine());
 
+        sb.AppendLine(WarzoneProcesses.EndIfLine);
         return sb.ToString();
     }
 

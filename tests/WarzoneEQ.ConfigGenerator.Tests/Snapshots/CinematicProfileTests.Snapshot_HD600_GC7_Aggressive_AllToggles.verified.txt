@@ -1,5 +1,6 @@
-﻿# warzone\current.txt — Cinematic mode (full chain)
+# warzone\current.txt — Cinematic mode (full chain)
 Device: Speakers Sound Blaster GC7 Game
+If(app:cod.exe;app:ModernWarfare.exe;app:Warzone.exe;app:cod_modernwarfare.exe;app:BlackOps6.exe)
 
 Stage: pre-mix
 
@@ -29,3 +30,4 @@ Include: warzone\fps-curves\aggressive.txt
 Plugin: 'warzone\jsfx\adaptive-loudness.jsfx'
 Plugin: "ReaXcomp" -band 1 -freq-low 2000 -freq-high 4500 -threshold -42.0 -ratio 1:2 -attack 5 -release 80
 Plugin: "LoudMax" -ceiling -1.0
+EndIf

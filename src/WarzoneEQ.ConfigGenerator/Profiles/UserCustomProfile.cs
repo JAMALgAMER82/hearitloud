@@ -18,6 +18,9 @@ public sealed class UserCustomProfile : IProfileGenerator
         if (input.DacEndpoint.DeviceDirective is { } directive)
             sb.AppendLine(directive);
 
+        // v1.10.7: see CompetitiveProfile for the rationale.
+        sb.AppendLine(WarzoneProcesses.IfLine);
+
         sb.AppendLine();
         sb.AppendLine("Stage: pre-mix");
         sb.AppendLine();
@@ -34,6 +37,7 @@ public sealed class UserCustomProfile : IProfileGenerator
         if (input.HeadphoneCorrection.IncludePath is { } hcPath)
             sb.AppendLine($"Include: {hcPath}");
 
+        sb.AppendLine(WarzoneProcesses.EndIfLine);
         return sb.ToString();
     }
 }

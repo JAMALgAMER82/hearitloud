@@ -37,6 +37,9 @@ public sealed class FootstepHunterProfile : IProfileGenerator
         if (input.DacEndpoint.DeviceDirective is { } directive)
             sb.AppendLine(directive);
 
+        // v1.10.7: see CompetitiveProfile for the rationale.
+        sb.AppendLine(WarzoneProcesses.IfLine);
+
         sb.AppendLine();
         sb.AppendLine("Stage: pre-mix");
 
@@ -115,6 +118,7 @@ public sealed class FootstepHunterProfile : IProfileGenerator
         if (limEnabled)
             sb.AppendLine(LoudMax.Limiter(limCeiling).ToConfigLine());
 
+        sb.AppendLine(WarzoneProcesses.EndIfLine);
         return sb.ToString();
     }
 

@@ -54,11 +54,29 @@ public class CompetitiveProfileTests
     }
 
     [Fact]
-    public void Always_ends_with_LoudMax_limiter()
+    public void Always_ends_with_LoudMax_limiter_then_EndIf()
+    {
+        // v1.10.7: chain is now wrapped in If(app:cod.exe;...) ... EndIf so the
+        // last actual processing line is the LoudMax limiter and the very last
+        // file line is the EndIf marker.
+        var output = new CompetitiveProfile().Generate(new ProfileInput(AudioMode.Competitive));
+        var lines = output.TrimEnd().Split('\n').Select(l => l.TrimEnd()).ToList();
+        lines.Last().Should().Be("EndIf");
+        lines[lines.Count - 2].Should().Be("Plugin: \"LoudMax\" -ceiling -1.0");
+    }
+
+    [Fact]
+    public void Wraps_processing_in_per_app_conditional_so_other_apps_pass_through()
     {
         var output = new CompetitiveProfile().Generate(new ProfileInput(AudioMode.Competitive));
-        var lines = output.TrimEnd().Split('\n');
-        lines.Last().TrimEnd().Should().Be("Plugin: \"LoudMax\" -ceiling -1.0");
+        output.Should().Contain("If(app:cod.exe");
+        output.Should().Contain("app:ModernWarfare.exe");
+        output.Should().Contain("app:Warzone.exe");
+        output.Should().Contain("app:BlackOps6.exe");
+        // EndIf must come AFTER every Stage / Channel / Plugin line.
+        var endIfIdx = output.IndexOf("EndIf", StringComparison.Ordinal);
+        output.IndexOf("Stage: post-mix", StringComparison.Ordinal).Should().BeLessThan(endIfIdx);
+        output.IndexOf("Plugin: \"LoudMax\"", StringComparison.Ordinal).Should().BeLessThan(endIfIdx);
     }
 
     [Fact]

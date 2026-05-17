@@ -106,4 +106,16 @@ public class FootstepHunterProfileTests
         var output = ConfigGenerator.Generate(new ProfileInput(AudioMode.FootstepHunter));
         output.Should().Contain("FootstepHunter mode");
     }
+
+    [Fact]
+    public void Wraps_processing_in_per_app_conditional_so_other_apps_pass_through()
+    {
+        var output = new FootstepHunterProfile().Generate(new ProfileInput(AudioMode.FootstepHunter));
+        output.Should().Contain("If(app:cod.exe");
+        output.Should().Contain("app:BlackOps6.exe");
+        var endIfIdx = output.LastIndexOf("EndIf", StringComparison.Ordinal);
+        endIfIdx.Should().BeGreaterThan(0);
+        output.IndexOf("Channel: LFE", StringComparison.Ordinal).Should().BeLessThan(endIfIdx);
+        output.IndexOf("Plugin: \"LoudMax\"", StringComparison.Ordinal).Should().BeLessThan(endIfIdx);
+    }
 }

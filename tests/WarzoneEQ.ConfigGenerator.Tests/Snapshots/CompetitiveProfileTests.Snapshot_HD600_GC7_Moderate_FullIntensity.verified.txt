@@ -1,5 +1,6 @@
-﻿# warzone\current.txt — Competitive mode
+# warzone\current.txt — Competitive mode
 Device: Speakers Sound Blaster GC7 Game
+If(app:cod.exe;app:ModernWarfare.exe;app:Warzone.exe;app:cod_modernwarfare.exe;app:BlackOps6.exe)
 
 Stage: pre-mix
 
@@ -27,3 +28,4 @@ Include: warzone\headphone-correction\HD600.txt
 Include: warzone\fps-curves\moderate.txt
 Plugin: "ReaXcomp" -band 1 -freq-low 2000 -freq-high 4500 -threshold -42.0 -ratio 1:2 -attack 5 -release 80
 Plugin: "LoudMax" -ceiling -1.0
+EndIf
