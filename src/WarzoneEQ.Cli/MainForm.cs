@@ -253,13 +253,33 @@ public sealed class MainForm : Form
 
         // Minimize-to-tray instead of taskbar so auto-switching keeps running.
         // If the tray failed to initialize, fall back to staying on the taskbar.
+        //
+        // v1.10.8: DO NOT call Hide() here — that's the root cause of the
+        // SetParent ERROR_INVALID_PARAMETER crash on Show() reported by users
+        // who minimize, then click the tray icon to restore. Hide() flips
+        // WS_VISIBLE off and the deep Card → TableLayoutPanel → Button tree
+        // ends up with a stale parent handle; Show() then trips CreateControl
+        // → SetParentHandle and dies. Using ShowInTaskbar=false keeps the
+        // window present, just removes it from the taskbar — restore is then
+        // a pure WindowState flip, no HWND tree validation.
         Resize += (_, _) =>
         {
             if (WindowState != FormWindowState.Minimized) return;
             if (_tray is null) return;
-            try { Hide(); _tray.ShowBalloonTip(800, "Hear It Loud", "Still running — auto-switching A/B by game.", ToolTipIcon.Info); }
+            ShowInTaskbar = false;
+            try { _tray.ShowBalloonTip(800, "Hear It Loud", "Still running — auto-switching A/B by game.", ToolTipIcon.Info); }
             catch { /* balloon tip is best-effort */ }
         };
+    }
+
+    // v1.10.8: paired with the Resize handler above. Restores the form from
+    // tray without touching visibility / HWNDs — only WindowState + the
+    // taskbar flag. Called from both tray menu "Show" and double-click.
+    private void RestoreFromTray()
+    {
+        ShowInTaskbar = true;
+        WindowState = FormWindowState.Normal;
+        Activate();
     }
 
     private void BuildTrayIcon()
@@ -271,7 +291,7 @@ public sealed class MainForm : Form
             Visible = true,
         };
         var menu = new ContextMenuStrip();
-        var showItem = menu.Items.Add("Show Hear It Loud", null, (_, _) => { Show(); WindowState = FormWindowState.Normal; Activate(); });
+        var showItem = menu.Items.Add("Show Hear It Loud", null, (_, _) => RestoreFromTray());
         var toggleItem = menu.Items.Add("Toggle A/B (Ctrl+Shift+F8)", null, (_, _) => ToggleAbSlot());
         var autoItem = (ToolStripMenuItem)menu.Items.Add("Auto-switch by foreground game", null, (_, _) =>
         {
@@ -283,7 +303,7 @@ public sealed class MainForm : Form
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Quit", null, (_, _) => { _tray!.Visible = false; Application.Exit(); });
         _tray.ContextMenuStrip = menu;
-        _tray.DoubleClick += (_, _) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
+        _tray.DoubleClick += (_, _) => RestoreFromTray();
     }
 
     private void OnForegroundChanged(string? processName)
